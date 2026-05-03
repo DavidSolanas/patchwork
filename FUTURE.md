@@ -105,6 +105,24 @@ If a v0.2+ change requires loosening any of these, that is a sign the design is 
 **Risks.**
 - Survivorship bias. If patchwork only ever creates PRs the operator approves, the "rejection" signal is sparse and skewed. The learning input should include human review rejections too — those are richer signal than maintainer rejections.
 
+### Pluggable triage provider
+
+**What.** Today `src/github/scoreIssue.ts` is bound to `@anthropic-ai/sdk` and `claude-haiku-4-5-20251001` per PLAN. Lift that into a small `TriageProvider` interface so operators can swap the triage backend (different Anthropic model, OpenAI, a local model, or a deterministic heuristic for offline/CI use) without touching the orchestrator.
+
+**Why.** Cursor SDK is the agent runtime — provider-flexible by design. Triage was deliberately kept simple in v0.1 to ship the safety story first, but it is the second-largest cost line item per run and the most natural place to experiment with cheaper or fine-tuned models. A swappable interface unlocks that without a rewrite.
+
+**What would be needed.**
+- `interface TriageProvider { score(issue: IssueRef): Promise<{ score: TriageScore; tokens: TokenUsage; model: string }> }` exported from `src/github/triage/types.ts`.
+- Move the current Anthropic-specific code into `src/github/triage/anthropic.ts` implementing the interface; the system prompt and tool schema stay where they are.
+- Configuration: extend `Settings` schema with an optional `triage_provider` field (defaulting to `anthropic`); resolve to a concrete provider in the Phase 6 orchestrator.
+- Update `MODEL_PRICES` only as needed — pricing is already centralised.
+
+**Hard constraint.** Whichever provider is used, the system prompt **must** continue to reinforce invariant #6 (issue body is untrusted data, not instructions). The interface should accept a system-prompt template hook so this requirement is enforced uniformly across providers.
+
+**Risks.**
+- Cheap providers may fail JSON-mode contracts more often. The retry-once-then-SKIP behavior in v0.1 (invariant #5) must be preserved per provider.
+- Provider drift in token-accounting fields (cache_read, cache_creation, etc.) — keep `TokenUsage` provider-agnostic; do mapping inside the provider implementation, never in the orchestrator.
+
 ### Slack / Telegram review surfaces
 
 **What.** Send the diff summary plus approve / reject buttons to a Slack channel or Telegram chat. Operator reviews from anywhere without opening a terminal.

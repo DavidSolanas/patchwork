@@ -6,8 +6,8 @@ yarn.lock
 # Typescript compilation
 dist/
 build/
-*.js
-*.js.map
+src/**/*.js
+src/**/*.js.map
 *.tsbuildinfo
 
 # env vars

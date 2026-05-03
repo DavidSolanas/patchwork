@@ -303,7 +303,7 @@ Implementation: parse with `yaml`, run through Zod. On `ZodError`, emit a multi-
 
 ---
 
-## Phase 1 — GitHub triage pipeline
+## Phase 1 — GitHub triage pipeline  ✅ DONE
 
 **Goal:** turn `targets.yaml` into a vetted list of issues worth attempting.
 **Depends on:** Phase 0.
