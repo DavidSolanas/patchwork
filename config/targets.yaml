@@ -1,0 +1,21 @@
+# patchwork — starter target config.
+#
+# Each entry under `targets:` describes one upstream repo patchwork will
+# scan for issues. Settings apply to the whole run.
+#
+# See examples/ for fuller, real-world configs.
+
+targets:
+  - repo: octocat/hello-world
+    labels:
+      - good first issue
+    max_issues: 5
+    max_tokens_per_issue: 150000
+    skip_if_comments_gt: 30
+    model: composer-2-standard
+
+settings:
+  mode: sequential
+  dry_run: false
+  min_score: 7
+  cost_limit_usd: 2

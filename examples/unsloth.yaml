@@ -1,0 +1,17 @@
+# Realistic patchwork config: a single repo with multiple "good first issue" style
+# labels, conservative limits, and a higher score threshold for first-time runs.
+targets:
+  - repo: unslothai/unsloth
+    labels:
+      - good first issue
+      - help wanted
+    max_issues: 8
+    max_tokens_per_issue: 200000
+    skip_if_comments_gt: 25
+    model: composer-2-standard
+
+settings:
+  mode: sequential
+  dry_run: false
+  min_score: 8
+  cost_limit_usd: 5

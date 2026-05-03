@@ -34,4 +34,7 @@ coverage/
 
 # Production
 .next/
-.nuxt/   
+.nuxt/
+
+# Patchwork runtime state
+.patchwork/

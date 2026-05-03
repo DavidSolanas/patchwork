@@ -106,7 +106,7 @@ patchwork/
 
 ---
 
-## Phase 0 — Project scaffolding and config system
+## Phase 0 — Project scaffolding and config system  ✅ DONE
 
 **Goal:** every later phase imports types and config without ambiguity. No business logic.
 

@@ -1,0 +1,3 @@
+# Smallest valid patchwork config — every other field falls back to schema defaults.
+targets:
+  - repo: octocat/hello-world
