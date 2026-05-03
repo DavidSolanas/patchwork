@@ -487,7 +487,7 @@ Atomic writes: write to `.tmp`, then rename. Used by `patchwork review`.
 
 ---
 
-## Phase 3 — Cursor SDK agent integration
+## Phase 3 — Cursor SDK agent integration  ✅ DONE
 
 **Goal:** turn an `IssueRef` + target config into an `AgentRunResult`. **Includes** binding the agent to the correct repo (upstream vs fork).
 

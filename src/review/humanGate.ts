@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import readline from 'node:readline';
 import chalk from 'chalk';
 import { PatchworkError, type ReviewDecision, type ReviewPayload, type ReviewSurface } from '../types.js';
+import { sanitizeUntrusted } from '../util/sanitize.js';
 import { renderDiff } from './diffViewer.js';
 
 export interface TerminalReviewSurfaceIO {
@@ -171,27 +172,6 @@ export class TerminalReviewSurface implements ReviewSurface {
       });
     });
   }
-}
-
-/**
- * Strip ANSI escape sequences and C0/C1 control characters (except `\t`,
- * `\n`, `\r`) from issue-derived strings before printing. Invariant #6: the
- * issue body is untrusted data; without this, an issue body containing
- * `\x1b[2J` could clear the operator's terminal mid-review, OSC 8 sequences
- * could spoof hyperlinks, etc.
- */
-function sanitizeUntrusted(s: string): string {
-  /* eslint-disable no-control-regex */
-  return s
-    // CSI sequences: ESC [ ... final byte
-    .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, '')
-    // OSC sequences: ESC ] ... BEL or ESC ] ... ESC \
-    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
-    // Other ESC-introducer sequences (single intermediate byte)
-    .replace(/\x1b[\x20-\x7e]/g, '')
-    // C0 controls except \t, \n, \r; plus DEL and C1 controls
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, '');
-  /* eslint-enable no-control-regex */
 }
 
 function branchUrl(payload: ReviewPayload): string {

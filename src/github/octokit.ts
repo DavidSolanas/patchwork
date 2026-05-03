@@ -3,6 +3,11 @@ import { throttling } from '@octokit/plugin-throttling';
 import { retry } from '@octokit/plugin-retry';
 import { PatchworkError } from '../types.js';
 
+// Re-exported so modules outside `src/github/**` can refer to the Octokit
+// type without tripping invariant #3 / the ESLint no-restricted-imports rule.
+// Only the type is re-exported — runtime construction stays inside this file.
+export type { Octokit } from '@octokit/rest';
+
 export class GitHubAuthError extends PatchworkError {
   constructor(message: string, hint?: string) {
     super(message, hint);
