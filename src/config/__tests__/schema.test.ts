@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { ConfigSchema } from '../schema.js';
 import { ConfigError, loadConfig, parseConfig, _internal } from '../load.js';
 
@@ -118,8 +118,10 @@ settings:
   });
 
   it('rewrites legacy "composer-2" to "composer-2-standard"', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cfg = parseConfig('targets:\n  - repo: a/b\n    model: composer-2\n');
     expect(cfg.targets[0]?.model).toBe('composer-2-standard');
+    warn.mockRestore();
   });
 
   it('throws ConfigError on YAML parse failure', () => {
