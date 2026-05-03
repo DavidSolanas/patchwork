@@ -214,9 +214,13 @@ export interface AgentRunResult {
   testingNotes: string;
 }
 
+export type SuccessfulAgentRunResult = AgentRunResult & {
+  outcome: Extract<RunOutcome, { kind: 'success' }>;
+};
+
 export interface ReviewPayload {
   issue: IssueRef;
-  result: Extract<AgentRunResult, { outcome: { kind: 'success' } }>;
+  result: SuccessfulAgentRunResult;
   filesChanged: { path: string; additions: number; deletions: number; binary: boolean }[];
   totalAdditions: number;
   totalDeletions: number;
@@ -396,7 +400,7 @@ Use the Search API: `repo:owner/name is:pr is:open #N in:body`. Per-run cache ke
 
 ---
 
-## Phase 2 — Human review gate
+## Phase 2 — Human review gate  ✅ DONE
 
 **Goal:** the immovable safety gate. Implemented and validated **before** wiring the agent — the gate is the safety net for everything downstream.
 
@@ -744,7 +748,7 @@ The disclosure block is mandatory. There is no option to suppress it. A unit tes
 ```ts
 export interface CreatePRInput {
   octokit: Octokit;
-  result: Extract<AgentRunResult, { outcome: { kind: 'success' } }>;
+  result: SuccessfulAgentRunResult;
   upstream: { owner: string; name: string };
 }
 

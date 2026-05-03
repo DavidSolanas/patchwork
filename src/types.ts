@@ -53,9 +53,13 @@ export interface AgentRunResult {
   testingNotes: string;
 }
 
+export type SuccessfulAgentRunResult = AgentRunResult & {
+  outcome: Extract<RunOutcome, { kind: 'success' }>;
+};
+
 export interface ReviewPayload {
   issue: IssueRef;
-  result: Extract<AgentRunResult, { outcome: { kind: 'success' } }>;
+  result: SuccessfulAgentRunResult;
   filesChanged: { path: string; additions: number; deletions: number; binary: boolean }[];
   totalAdditions: number;
   totalDeletions: number;
