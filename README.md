@@ -37,9 +37,9 @@ Patchwork inverts the trade-off. The expensive, slow steps — fetching issues, 
 └──────────────┘    └──────────────┘    └──────────────┘    └──────┬───────┘
                                                                    │
                                                        ┌───────────▼───────────┐
-                                                       │   You approve / reject │
+                                                       │   You approve / reject│
                                                        │   / skip / open in    │
-                                                       │   browser              │
+                                                       │   browser             │
                                                        └───────────┬───────────┘
                                                                    │ approve
                                                        ┌───────────▼───────────┐
