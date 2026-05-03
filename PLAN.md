@@ -667,7 +667,7 @@ Flow:
 
 ---
 
-## Phase 4 — PR creation pipeline
+## Phase 4 — PR creation pipeline  ✅ DONE
 
 **Goal:** turn an approved `AgentRunResult` into a public PR. **Reachable only after** `ReviewDecision.action === 'approve'`.
 
@@ -721,6 +721,8 @@ export function renderPRBody(input: PRTemplateInput): string;
 Body template (exact):
 
 ```markdown
+Fixes #{issue.number}
+
 ## What was changed and why
 
 {agentSummary}
@@ -729,14 +731,21 @@ Body template (exact):
 
 {testingNotes}
 
+## Type of change
+
+- [ ] Bug fix (non-breaking)
+- [ ] New feature (non-breaking)
+- [ ] Breaking change
+- [ ] Documentation update
+
 ## AI Disclosure
 
 This contribution was developed with AI assistance using the Cursor SDK
-({model} model). All code changes were reviewed and approved by the author
-before submission. Fixes #{issue.number}.
+({model} model). All code changes were reviewed, tested, and approved
+by the author before submission.
 
 ---
-Submitted via patchwork.
+*Submitted via patchwork.*
 ```
 
 The disclosure block is mandatory. There is no option to suppress it. A unit test asserts the disclosure substring is always present in the rendered output.

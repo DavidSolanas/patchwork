@@ -37,9 +37,9 @@ Patchwork inverts the trade-off. The expensive, slow steps — fetching issues, 
 └──────────────┘    └──────────────┘    └──────────────┘    └──────┬───────┘
                                                                    │
                                                        ┌───────────▼───────────┐
-                                                       │   You approve / reject│
+                                                       │  You approve / reject │
                                                        │   / skip / open in    │
-                                                       │   browser             │
+                                                       │        browser        │
                                                        └───────────┬───────────┘
                                                                    │ approve
                                                        ┌───────────▼───────────┐
@@ -189,22 +189,31 @@ If you write `model: composer-2` (without a variant) in YAML, patchwork warns an
 Every patchwork PR body has this shape:
 
 ```markdown
+Fixes #<N>
+
 ## What was changed and why
 
 <agent-generated summary>
 
 ## Testing notes
 
-<agent-generated, or "manual testing recommended" if absent>
+<agent-generated, or "No automated tests were detected or run." if absent>
+
+## Type of change
+
+- [ ] Bug fix (non-breaking)
+- [ ] New feature (non-breaking)
+- [ ] Breaking change
+- [ ] Documentation update
 
 ## AI Disclosure
 
 This contribution was developed with AI assistance using the Cursor SDK
-(<model> model). All code changes were reviewed and approved by the author
-before submission. Fixes #<N>.
+(<model> model). All code changes were reviewed, tested, and approved
+by the author before submission.
 
 ---
-Submitted via patchwork.
+*Submitted via patchwork.*
 ```
 
 The disclosure block is mandatory and tested for. There is no flag to remove it.
