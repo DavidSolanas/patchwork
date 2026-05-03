@@ -99,8 +99,6 @@ export async function runAgent(
     prompt,
     model: target.model,
     autoCreatePR: false,
-    skillFiles: ['.cursor/skills/oss-contributor.md'],
-    maxTokens: target.max_tokens_per_issue,
   });
   const runId = start.runId;
 

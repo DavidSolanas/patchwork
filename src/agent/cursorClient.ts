@@ -24,8 +24,10 @@ export interface StartRunInput {
    * PRs only via `src/github/createPR.ts` after explicit human approval.
    */
   autoCreatePR: false;
-  skillFiles: string[];
-  maxTokens?: number;
+  // skillFiles is intentionally absent: the SDK has no such parameter.
+  // Cursor cloud agents discover .cursor/skills/ from the bound repo automatically.
+  // maxTokens is intentionally absent: the SDK has no token-cap parameter.
+  // Budget enforcement is handled by RunState.shouldAbortBeforeNextRun() (invariant #9).
 }
 
 export interface RunSnapshot {
