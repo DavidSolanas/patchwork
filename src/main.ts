@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
 import chalk from 'chalk';
