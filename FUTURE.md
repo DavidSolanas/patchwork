@@ -24,6 +24,90 @@ If a v0.2+ change requires loosening any of these, that is a sign the design is 
 
 ---
 
+## v0.1.x — Prompt fidelity and reporting accuracy
+
+These are correctness bugs discovered in the first real run of v0.1. None requires a feature flag or architectural change; they are small, targeted patches to three files. They are batched here rather than fixed immediately because they interact (summary extraction and test-guidance framing both feed the PR body) and should be tested together.
+
+### Inline the OSS contributor skill into the agent prompt
+
+**What.** `buildPrompt` ends with `Refer to .cursor/skills/oss-contributor.md for full OSS contribution norms.` The Cursor SDK discovers `.cursor/skills/` from the *bound repo* — the fork or upstream. Target repos do not carry patchwork's skill file, so the reference is silently dead; the agent has no access to it.
+
+**What would be needed.**
+- Read `.cursor/skills/oss-contributor.md` at `buildPrompt` call time. Add `skillContent: string` to `BuildPromptContext` and replace the reference line with the literal file content. `runAgent` supplies the content by calling `fs.readFile` once before invoking `buildPrompt`; a `DEFAULT_SKILL_CONTENT` constant can serve as a compile-time fallback if the read fails.
+- Remove the now-dead "Refer to..." line. Do not add a second path reference anywhere.
+
+**Risks.**
+- Token budget: the skill file is ~80 lines (~1 200 chars). Negligible relative to current prompt size.
+- Drift: the inlined copy is frozen at prompt-build time. Acceptable for v0.1.x.
+
+### Improve test-guidance framing in the agent prompt
+
+**What.** `buildPrompt` emits bare command names (`pytest`, `npm test`) as "Test guidance" with no caveat that the runner may not be available in the Cursor cloud environment. Agents that cannot run the suite emit confusing output ("pytest was not runnable here — python3-venv missing") that propagates verbatim into the PR body's testing section. The `testingNotes` string in `runAgent` compounds this: it reads `Test commands detected: pytest` even if the agent never ran a single test.
+
+**What would be needed.**
+- In `buildPrompt`, wrap the test hints with explicit framing: *"These test commands were detected in the repository. Run them after making your changes if the runner is available in your environment. If it is not, state that explicitly — do not leave the testing notes blank."*
+- In `runAgent`, change the `testingNotes` string to `"Test runner detected but environment availability unverified: pytest"` (or "No test commands detected") so the PR body is honest about what was found versus what ran.
+
+**Risks.** None — purely informational framing, no logic change.
+
+### Structured `<summary>` block for reliable PR-body extraction
+
+**What.** `parseResult.extractSummary` takes the last non-empty, non-code paragraph from the agent's output. In practice the agent's last paragraph is often meta-commentary about the branch it pushed or a note about PR creation, not a description of what changed. The resulting "What was changed and why" section in the PR body is misleading or useless.
+
+**What would be needed.**
+- Add a `<summary>…</summary>` instruction to `buildPrompt` (analogous to the existing `<patch>` block): the agent must emit a 2–5 sentence description of what changed and why, between `<summary>` and `</summary>` tags, placed *before* its `<patch>` block.
+- Add a `SUMMARY_BLOCK = /<summary>([\s\S]*?)<\/summary>/` regex to `parseResult.ts`. In `parseResult`, try the structured block first; fall back to `extractSummary`'s last-paragraph heuristic when the tag is absent (preserving current behaviour for non-compliant outputs).
+- In `cursorClient.snapshotOf`, strip the `<summary>` block from `output` before returning it, mirroring how `<patch>` is already stripped (line 148). This prevents the last-paragraph fallback from accidentally matching the summary tag's literal text.
+
+**Risks.**
+- Agents may omit the tag — the heuristic fallback handles those runs.
+- `<summary>` is a common HTML element; use a non-greedy regex and do not apply the nonce mechanism used for `<issue_body>` (the agent, not untrusted user input, generates this block).
+
+### Cost tracking always reports $0 (Cursor SDK v1.x limitation)
+
+**What.** The run summary always shows `$0.00 (composer-2, 0 in / 0 out / 0 cache)`. The event consumer in `runAgent` is correct — it accumulates `CursorEvent.tokens` deltas — but `cursorClient.streamEvents` deliberately emits zero-token events because "The v1.x SDK does not yet surface token usage on stream messages" (comment at line 124 of `cursorClient.ts`). Operators see a $0.00 spend figure and cannot trust the cost limit.
+
+**What would be needed.**
+- When the Cursor SDK exposes usage on stream messages or on the completed `Run` object, map the fields into `CursorEvent.tokens` inside `streamEvents`. No caller changes are needed — the accumulator in `runAgent` is already correct.
+- If the SDK exposes aggregate usage on `run.result` post-completion, read it in `snapshotOf` and add an optional `usage?: TokenUsage` field to `RunSnapshot`. Thread it into `finish()` as an override when the event-accumulated total is zero, without changing the `TokenUsage` shape downstream.
+- Until the SDK exposes the data, render `"cost unknown"` instead of `$0.00` in `ConsoleReporter` and `writeSummary` when `costUsd === 0` and all token fields are zero. This makes the gap visible to operators rather than implying the run was free.
+
+**Risks.**
+- The SDK API is under active development; field names may differ from the assumption above. Pin to the SDK release that first exposes usage, update `streamEvents`, and add a regression test against a mock event that carries non-zero usage.
+
+### `[T]est locally` shortcut in the review prompt + honest AI disclosure
+
+**What.** The AI Disclosure block in every PR body previously read "reviewed, tested, and approved by the author." In practice the review prompt only showed a terminal diff — there was no mechanism for the human to actually run the code before approving. The claim was false. The immediate fix (already applied) removes "tested" from the disclosure. This item tracks restoring it honestly: adding a `[T]est locally` option to the review prompt that gives the operator the exact git commands to check out the branch, then tracks whether they used that path before approving, and restores the "tested" wording only when they did.
+
+**What would be needed.**
+
+*`src/types.ts`*
+- Extend the `approve` arm of `ReviewDecision` to carry a flag: `{ action: 'approve'; testedLocally: boolean }`. This is a new field on an existing action, not a new action, so the exhaustive `const _: never = decision` switch (invariant #10) requires no new arms — but the caller that pattern-matches `action === 'approve'` must destructure `testedLocally` and pass it downstream.
+- Add `testedLocally: boolean` to `PRTemplateInput` in `src/github/prTemplate.ts`.
+
+*`src/review/humanGate.ts`*
+- Add `[T]est locally` to the prompt line. When pressed, print the two git commands and wait for the user to press Enter before re-displaying the prompt. The branch and bound-repo URL are already in `ReviewPayload.result.outcome.branch` and `ReviewPayload.result.boundRepo`:
+  ```
+  git fetch https://github.com/{owner}/{name} {branch}
+  git checkout FETCH_HEAD
+  ```
+  (`FETCH_HEAD` gives a detached HEAD that is sufficient for running tests; the operator is not expected to push from this state.)
+- Track a `testedLocally` boolean (initially `false`; set to `true` after the user completes the `[T]` path). Pass it in the returned `{ action: 'approve', testedLocally }` decision.
+
+*`src/github/prTemplate.ts`*
+- When `testedLocally` is `true`, render: `"reviewed, tested locally, and approved by the author before submission."`
+- When `false` (diff-only approval): `"reviewed and approved by the author before submission (changes were not run locally)."`
+
+*Caller (`src/cli/runCommand.ts`)*
+- Extract `testedLocally` from the `approve` decision and thread it into `createPR` / `renderPRBody`.
+
+**Risks.**
+- The operator might press `[T]`, see the commands, and then approve without actually running anything. This is unavoidable — patchwork cannot observe the other terminal. The feature shifts responsibility honestly: the operator is shown the path; if they skip it and approve, the PR body says so.
+- `FETCH_HEAD` leaves a detached HEAD. Add a note in the printed output: `"To return to your previous branch: git checkout -"`.
+- Web / Slack surfaces (v0.2+) cannot use this interactive path as designed. When those surfaces implement `present()`, they should render the git commands in the review UI and offer an explicit "I tested this" checkbox that gates the `testedLocally` flag. The `ReviewDecision` shape already carries the flag, so the PR template requires no further changes.
+
+---
+
 ## v0.2
 
 ### Web dashboard

@@ -62,7 +62,7 @@ export function renderPRBody(input: PRTemplateInput): string {
     '## AI Disclosure',
     '',
     'This contribution was developed with AI assistance using the Cursor SDK',
-    `(${input.model} model). All code changes were reviewed, tested, and approved`, // Added "tested" for extra reassurance
+    `(${input.model} model). All code changes were reviewed and approved`,
     'by the author before submission.',
     '',
     '---',

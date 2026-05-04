@@ -52,7 +52,7 @@ describe('renderPRBody', () => {
     const body = renderPRBody(baseInput);
     expect(body).toContain('AI Disclosure');
     expect(body).toContain('developed with AI assistance using the Cursor SDK');
-    expect(body).toContain('reviewed, tested, and approved');
+    expect(body).toContain('reviewed and approved');
     expect(body).toContain('by the author before submission.');
   });
 
