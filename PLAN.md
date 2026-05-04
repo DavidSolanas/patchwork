@@ -789,7 +789,7 @@ The branch already lives in `result.boundRepo` because Phase 3 bound the agent t
 
 ---
 
-## Phase 5 — Reporter and cost tracking
+## Phase 5 — Reporter and cost tracking  ✅ DONE
 
 **Goal:** observable, auditable runs with hard cost ceilings.
 
@@ -815,12 +815,12 @@ interface ModelPrice {
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'composer-2-standard':       { inputPer1M:  0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
-  'composer-2-fast':           { inputPer1M:  1.50, outputPer1M:  7.50, cacheReadPer1M: 0.35 },
-  'claude-haiku-4-5-20251001': { inputPer1M:  1.00, outputPer1M:  5.00 },
-  'claude-sonnet-4-6':         { inputPer1M:  3.00, outputPer1M: 15.00 },
-  'claude-opus-4-7':           { inputPer1M: 15.00, outputPer1M: 75.00 },
-  'gpt-5.5':                   { inputPer1M:  0,    outputPer1M:  0    }, // FILL when finalized
+  'composer-2-standard':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
+  'composer-2-fast':           { inputPer1M: 1.50, outputPer1M:  7.50, cacheReadPer1M: 0.35 },
+  'claude-haiku-4-5-20251001': { inputPer1M: 1.00, outputPer1M:  5.00, cacheReadPer1M: 0.10 },
+  'claude-sonnet-4-6':         { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30 },
+  'claude-opus-4-7':           { inputPer1M: 5.00, outputPer1M: 25.00, cacheReadPer1M: 0.50 },
+  'gpt-5.5':                   { inputPer1M: 5.00, outputPer1M: 30.00, cacheReadPer1M: 0.50 },
 };
 
 export function priceFor(model: string, tokens: TokenUsage): number;

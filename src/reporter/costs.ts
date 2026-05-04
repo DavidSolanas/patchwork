@@ -7,13 +7,12 @@ interface ModelPrice {
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'composer-2-standard': { inputPer1M: 0.5, outputPer1M: 2.5, cacheReadPer1M: 0.2 },
-  'composer-2-fast': { inputPer1M: 1.5, outputPer1M: 7.5, cacheReadPer1M: 0.35 },
-  'claude-haiku-4-5-20251001': { inputPer1M: 1.0, outputPer1M: 5.0 },
-  'claude-sonnet-4-6': { inputPer1M: 3.0, outputPer1M: 15.0 },
-  'claude-opus-4-7': { inputPer1M: 15.0, outputPer1M: 75.0 },
-  // Pricing not yet finalised — emits an unknown-model warning if used live.
-  'gpt-5.5': { inputPer1M: 0, outputPer1M: 0 },
+  'composer-2-standard':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
+  'composer-2-fast':           { inputPer1M: 1.50, outputPer1M:  7.50, cacheReadPer1M: 0.35 },
+  'claude-haiku-4-5-20251001': { inputPer1M: 1.00, outputPer1M:  5.00, cacheReadPer1M: 0.10 },
+  'claude-sonnet-4-6':         { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30 },
+  'claude-opus-4-7':           { inputPer1M: 5.00, outputPer1M: 25.00, cacheReadPer1M: 0.50 },
+  'gpt-5.5':                   { inputPer1M: 5.00, outputPer1M: 30.00, cacheReadPer1M: 0.50 },
 };
 
 const warnedUnknownModels = new Set<string>();
