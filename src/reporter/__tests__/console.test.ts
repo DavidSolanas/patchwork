@@ -36,7 +36,7 @@ const config: PatchworkConfig = {
       max_issues: 5,
       max_tokens_per_issue: 100,
       skip_if_comments_gt: 30,
-      model: 'composer-2-standard',
+      model: 'composer-2',
     },
   ],
   settings: { mode: 'sequential', dry_run: false, min_score: 7, cost_limit_usd: 2 },
@@ -51,7 +51,7 @@ const score: TriageScore = {
 
 const result = (kind: AgentRunResult['outcome']['kind']): AgentRunResult => ({
   issue,
-  model: 'composer-2-standard',
+  model: 'composer-2',
   tokens: { input: 0, output: 0, cacheRead: 0 },
   costUsd: 0.05,
   startedAt: '2026-05-04T00:00:00Z',
@@ -89,7 +89,7 @@ describe('ConsoleReporter (non-TTY)', () => {
     const stream = new CaptureStream() as unknown as NodeJS.WriteStream;
     const r = new ConsoleReporter(stream);
     r.start(config);
-    r.issueStarting(issue, 'composer-2-standard');
+    r.issueStarting(issue, 'composer-2');
     r.issueScored(issue, score);
     r.issueAttempting(issue);
     r.agentResult(result('success'));

@@ -18,7 +18,7 @@ describe('priceFor', () => {
   });
 
   it('uses dedicated cache-read rate when present', () => {
-    const cost = priceFor('composer-2-standard', tokens(1_000_000, 0, 1_000_000));
+    const cost = priceFor('composer-2', tokens(1_000_000, 0, 1_000_000));
     // input 0.50 + cache 0.20 = 0.70
     expect(cost).toBeCloseTo(0.7, 8);
   });

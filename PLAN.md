@@ -13,7 +13,7 @@ Patchwork scans GitHub repositories for open issues, triages them with a cheap L
 1. **Human review is the central UX constraint.** No PR may be created without explicit human approval of the diff. There is no "auto" mode, even in CI.
 2. **AI involvement is disclosed.** Every PR body includes a standardized AI disclosure block.
 3. **Cost is observable and capped.** Every run reports tokens and USD before and after; runs abort gracefully when a configured limit is hit.
-4. **Model choice is per-target, not hardcoded.** The default is `composer-2-standard` (Cursor's batch-priced variant); frontier models can be opted into per target.
+4. **Model choice is per-target, not hardcoded.** The default is `composer-2` (Cursor's batch-priced variant); frontier models can be opted into per target.
 5. **Failure mode is SKIP.** Any time the system can't continue safely, the issue is skipped and logged — never silently retried, never auto-recovered with a PR.
 
 ### Stack
@@ -268,7 +268,7 @@ const Target = z.object({
   max_issues: z.number().int().positive().max(50).default(5),
   max_tokens_per_issue: z.number().int().positive().default(150_000),
   skip_if_comments_gt: z.number().int().nonnegative().default(30),
-  model: z.string().default('composer-2-standard'),
+  model: z.string().default('composer-2'),
 }).strict();
 
 const Settings = z.object({
@@ -293,7 +293,7 @@ export function loadConfig(path: string): PatchworkConfig;
 export class ConfigError extends PatchworkError {}
 ```
 
-Implementation: parse with `yaml`, run through Zod. On `ZodError`, emit a multi-line message with the `.path` join (e.g. `targets[1].max_issues`) and the human-readable issue. Reject unknown keys. **Special case:** if any target has `model: 'composer-2'` (bare), warn once and rewrite to `'composer-2-standard'` — Cursor split this into Standard/Fast variants.
+Implementation: parse with `yaml`, run through Zod. On `ZodError`, emit a multi-line message with the `.path` join (e.g. `targets[1].max_issues`) and the human-readable issue. Reject unknown keys. **Special case:** if any target has `model: 'composer-2'` (bare), warn once and rewrite to `'composer-2'` — Cursor split this into Standard/Fast variants.
 
 ### Risks & mitigations
 
@@ -447,7 +447,7 @@ Behaviour:
 3. Print files-changed table: path, +adds, -dels.
 4. If `largeDiffWarning`: bright `chalk.bgYellow.black` banner.
 5. Print rendered diff.
-6. Print cost line: `Run cost: $0.034 (composer-2-standard, 12k in / 3k out / 1k cache)`.
+6. Print cost line: `Run cost: $0.034 (composer-2, 12k in / 3k out / 1k cache)`.
 7. Prompt: `[A]pprove / [R]eject / [S]kip for later / [O]pen in browser >`. Read single key in raw mode, case-insensitive.
 8. On `O`: shell-out `xdg-open`/`open` to the branch URL on GitHub, then re-prompt.
 9. On `R`: optional follow-up `Reason (optional, enter to skip):`.
@@ -815,7 +815,7 @@ interface ModelPrice {
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'composer-2-standard':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
+  'composer-2':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
   'composer-2-fast':           { inputPer1M: 1.50, outputPer1M:  7.50, cacheReadPer1M: 0.35 },
   'claude-haiku-4-5-20251001': { inputPer1M: 1.00, outputPer1M:  5.00, cacheReadPer1M: 0.10 },
   'claude-sonnet-4-6':         { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30 },
@@ -1077,7 +1077,7 @@ The review gate (Phase 2) is built and validated before the agent integration (P
 | 1 | Cursor SDK package name | `@cursor/sdk` (`npm install @cursor/sdk`) |
 | 2 | Branch hosting | Cursor cloud writes branches to whichever repo the agent was bound to at creation. Binding is permanent per agent, so patchwork must (a) create a fresh agent per issue and (b) call `ensureFork` before `startRun` when the user is not the upstream owner. |
 | 3 | Token reporting | Cursor SDK exposes exact token counts via `onStep`/`onDelta` event streams; `runAgent` consumes events for tokens and polls `getRun` for terminal state. No tiktoken fallback. |
-| 4 | Composer 2 pricing | Two variants. Standard: $0.50 / $2.50 / $0.20 (input/output/cache-read per 1M). Fast: $1.50 / $7.50 / $0.35. Default to **`composer-2-standard`** for batch-style patchwork workloads. |
+| 4 | Composer 2 pricing | Two variants. Standard: $0.50 / $2.50 / $0.20 (input/output/cache-read per 1M). Fast: $1.50 / $7.50 / $0.35. Default to **`composer-2`** for batch-style patchwork workloads. |
 
 ---
 

@@ -41,7 +41,7 @@ function makeConfig(overrides: Partial<PatchworkConfig['settings']> = {}): Patch
         max_issues: 5,
         max_tokens_per_issue: 150_000,
         skip_if_comments_gt: 30,
-        model: 'composer-2-standard',
+        model: 'composer-2',
       },
     ],
     settings: {
@@ -286,7 +286,7 @@ describe('buildReviewPayload', () => {
     const payload = buildReviewPayload({
       issue: makeIssue(),
       outcome: { kind: 'success', branch: 'b', diff, commitSha: 'sha', agentSummary: 's' },
-      model: 'composer-2-standard',
+      model: 'composer-2',
       tokens: { input: 0, output: 0, cacheRead: 0 },
       costUsd: 0.01,
       startedAt: '',

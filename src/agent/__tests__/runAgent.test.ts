@@ -118,7 +118,7 @@ afterEach(async () => {
 });
 afterAll(() => nock.enableNetConnect());
 
-const target = { model: 'composer-2-standard', max_tokens_per_issue: 100_000 };
+const target = { model: 'composer-2', max_tokens_per_issue: 100_000 };
 const noSleep = (ms: number) => {
   void ms;
   return Promise.resolve();

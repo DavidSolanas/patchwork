@@ -48,7 +48,7 @@ function makePayload(overrides: Partial<ReviewPayload> = {}): ReviewPayload {
         commitSha: 'abc123',
         agentSummary: 'fixed it',
       },
-      model: 'composer-2-standard',
+      model: 'composer-2',
       tokens: { input: 1000, output: 200, cacheRead: 0 },
       costUsd: 0.034,
       startedAt: '2026-05-01T00:00:00Z',

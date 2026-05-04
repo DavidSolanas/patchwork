@@ -8,7 +8,7 @@ targets:
     max_issues: 8
     max_tokens_per_issue: 200000
     skip_if_comments_gt: 25
-    model: composer-2-standard
+    model: composer-2
 
 settings:
   mode: sequential

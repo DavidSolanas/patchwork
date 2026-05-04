@@ -43,7 +43,7 @@ describe('renderPRTitle', () => {
 describe('renderPRBody', () => {
   const baseInput = {
     issue: makeIssue(),
-    model: 'composer-2-standard',
+    model: 'composer-2',
     agentSummary: 'Replaced unwrap() with a graceful error path.',
     testingNotes: 'npm test',
   };
@@ -58,7 +58,7 @@ describe('renderPRBody', () => {
 
   it('embeds the model name and the issue number in the disclosure', () => {
     const body = renderPRBody(baseInput);
-    expect(body).toContain('(composer-2-standard model)');
+    expect(body).toContain('(composer-2 model)');
     expect(body).toContain('Fixes #42');
   });
 

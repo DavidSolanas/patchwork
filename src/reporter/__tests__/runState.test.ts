@@ -18,7 +18,7 @@ const baseResult = (
   override: Partial<AgentRunResult> & Pick<AgentRunResult, 'outcome'>,
 ): AgentRunResult => ({
   issue,
-  model: 'composer-2-standard',
+  model: 'composer-2',
   tokens: { input: 0, output: 0, cacheRead: 0 },
   costUsd: 0.1,
   startedAt: '2026-05-04T00:00:00Z',

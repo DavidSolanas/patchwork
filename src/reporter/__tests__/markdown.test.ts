@@ -19,7 +19,7 @@ const issue: IssueRef = {
 
 const result = (over: Partial<AgentRunResult> & Pick<AgentRunResult, 'outcome'>): AgentRunResult => ({
   issue,
-  model: 'composer-2-standard',
+  model: 'composer-2',
   tokens: { input: 100, output: 200, cacheRead: 50 },
   costUsd: 0.42,
   startedAt: '2026-05-04T00:00:00Z',

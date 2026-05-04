@@ -24,7 +24,7 @@ describe('ConfigSchema', () => {
     expect(t.max_issues).toBe(5);
     expect(t.max_tokens_per_issue).toBe(150_000);
     expect(t.skip_if_comments_gt).toBe(30);
-    expect(t.model).toBe('composer-2-standard');
+    expect(t.model).toBe('composer-2');
     expect(parsed.settings.mode).toBe('sequential');
     expect(parsed.settings.dry_run).toBe(false);
     expect(parsed.settings.min_score).toBe(7);
@@ -117,10 +117,10 @@ settings:
     expect(cfg.settings.cost_limit_usd).toBe(1.5);
   });
 
-  it('rewrites legacy "composer-2" to "composer-2-standard"', () => {
+  it('rewrites legacy "composer-2" to "composer-2"', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cfg = parseConfig('targets:\n  - repo: a/b\n    model: composer-2\n');
-    expect(cfg.targets[0]?.model).toBe('composer-2-standard');
+    expect(cfg.targets[0]?.model).toBe('composer-2');
     warn.mockRestore();
   });
 

@@ -37,7 +37,7 @@ function makeResult(overrides: Partial<SuccessfulAgentRunResult> = {}): Successf
       commitSha: 'abc1234',
       agentSummary: 'Replaced unwrap() with a graceful error path.',
     },
-    model: 'composer-2-standard',
+    model: 'composer-2',
     tokens: { input: 1000, output: 500, cacheRead: 0 },
     costUsd: 0.0025,
     startedAt: '2026-05-01T00:00:00Z',
@@ -123,7 +123,7 @@ describe('createPR', () => {
 
     expect(captured.body).toContain('AI Disclosure');
     expect(captured.body).toContain('developed with AI assistance using the Cursor SDK');
-    expect(captured.body).toContain('(composer-2-standard model)');
+    expect(captured.body).toContain('(composer-2 model)');
     expect(captured.body).toContain('Fixes #42');
   });
 

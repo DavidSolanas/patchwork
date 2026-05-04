@@ -6,13 +6,13 @@
 # See examples/ for fuller, real-world configs.
 
 targets:
-  - repo: octocat/hello-world
+  - repo: DavidSolanas/meet-transcript-whisper
     labels:
       - good first issue
-    max_issues: 5
+    max_issues: 1
     max_tokens_per_issue: 150000
     skip_if_comments_gt: 30
-    model: composer-2-standard
+    model: composer-2
 
 settings:
   mode: sequential

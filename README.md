@@ -24,7 +24,7 @@ Patchwork inverts the trade-off. The expensive, slow steps — fetching issues, 
 | **AI involvement is disclosed** | Every PR body contains a standardised disclosure block. There is no flag to suppress it. |
 | **Cost is observable and capped** | Token usage and USD cost are reported per issue and aggregated per run. A configurable limit aborts the run gracefully. |
 | **Failure mode is SKIP** | When the agent isn't confident, the issue is skipped with a logged reason — never silently retried, never papered over with a low-quality PR. |
-| **Models are configurable, not hardcoded** | Pick `composer-2-standard` for batch economics, frontier models for hard issues, all per-target. |
+| **Models are configurable, not hardcoded** | Pick `composer-2` for batch economics, frontier models for hard issues, all per-target. |
 
 ---
 
@@ -142,7 +142,7 @@ targets:
   - repo: facebook/react
     labels: [bug, "good first issue"]
     max_issues: 3
-    model: composer-2-standard
+    model: composer-2
 
 settings:
   min_score: 7
@@ -190,7 +190,7 @@ targets:
     max_issues: 5                 # max issues attempted per target per run (default 5)
     max_tokens_per_issue: 150000  # safety cap on agent run length (default 150k)
     skip_if_comments_gt: 30       # drop contentious threads (default 30)
-    model: composer-2-standard    # see "Choosing a model" below
+    model: composer-2    # see "Choosing a model" below
 
 settings:
   mode: sequential                # only sequential in v0.1 (parallel is roadmap)
@@ -220,14 +220,14 @@ Patchwork is a **batch** workflow — every issue is a fresh isolated run, laten
 
 | Model | Input / 1M | Output / 1M | Cache read / 1M | When to use |
 |---|---|---|---|---|
-| `composer-2-standard` | $0.50 | $2.50 | $0.20 | **Default.** Routine bug fixes, batch-friendly. |
+| `composer-2` | $0.50 | $2.50 | $0.20 | **Default.** Routine bug fixes, batch-friendly. |
 | `composer-2-fast` | $1.50 | $7.50 | $0.35 | Latency-sensitive interactive sessions (rare in patchwork). |
 | `claude-sonnet-4-6` | $3.00 | $15.00 | $0.30 | Issues triage flags as `escalate` — moderate complexity. |
 | `claude-opus-4-7` | $5.00 | $25.00 | $0.50 | High-stakes contributions where you want the strongest reasoning. |
 
 Cost is tracked exactly via Cursor's `onStep` / `onDelta` event streams — there is no estimation layer.
 
-If you write `model: composer-2` (without a variant) in YAML, patchwork warns and resolves it to `composer-2-standard`.
+If you write `model: composer-2` (without a variant) in YAML, patchwork warns and resolves it to `composer-2`.
 
 ---
 

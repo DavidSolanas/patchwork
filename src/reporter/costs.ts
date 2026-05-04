@@ -7,7 +7,7 @@ interface ModelPrice {
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'composer-2-standard':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
+  'composer-2':       { inputPer1M: 0.50, outputPer1M:  2.50, cacheReadPer1M: 0.20 },
   'composer-2-fast':           { inputPer1M: 1.50, outputPer1M:  7.50, cacheReadPer1M: 0.35 },
   'claude-haiku-4-5-20251001': { inputPer1M: 1.00, outputPer1M:  5.00, cacheReadPer1M: 0.10 },
   'claude-sonnet-4-6':         { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30 },

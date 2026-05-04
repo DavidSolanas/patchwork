@@ -1,4 +1,4 @@
-export const DEFAULT_MODEL = 'composer-2-standard';
+export const DEFAULT_MODEL = 'composer-2';
 
 export const DEFAULT_CONFIG_PATH = 'config/targets.yaml';
 
