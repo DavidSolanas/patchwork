@@ -22,12 +22,12 @@ function rewriteLegacyModelNames(raw: unknown): unknown {
   for (const t of targets) {
     if (t && typeof t === 'object') {
       const tt = t as Record<string, unknown>;
-      if (tt.model === 'composer-2') {
+      if (tt.model === 'composer-2-standard') {
         tt.model = 'composer-2';
         if (!warnedComposer2) {
           warnedComposer2 = true;
           console.warn(
-            '[patchwork] model "composer-2" is ambiguous — Cursor split it into Standard and Fast variants. Rewriting to "composer-2".',
+            '[patchwork] model "composer-2-standard" is deprecated — Cursor split it into Standard and Fast variants. Rewriting to "composer-2".',
           );
         }
       }
