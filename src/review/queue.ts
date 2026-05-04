@@ -1,7 +1,8 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { DEFERRED_QUEUE_FILE } from '../config/defaults.js';
+import { dedupKey } from '../github/deduplication.js';
 import type { ReviewPayload } from '../types.js';
+import { atomicWriteFile } from '../util/atomicWrite.js';
 
 export interface DeferredEntry {
   payload: ReviewPayload;
@@ -52,15 +53,11 @@ export class DeferredQueue {
   }
 
   private async writeAll(entries: DeferredEntry[]): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    await writeFile(tmp, JSON.stringify(entries, null, 2), 'utf8');
-    await rename(tmp, this.path);
+    await atomicWriteFile(this.path, JSON.stringify(entries, null, 2));
   }
 }
 
 /** Produces the `'owner/name#N'` key used by `remove()`. */
 export function keyOf(entry: DeferredEntry): string {
-  const { repo, number } = entry.payload.issue;
-  return `${repo.owner}/${repo.name}#${number}`;
+  return dedupKey(entry.payload.issue);
 }

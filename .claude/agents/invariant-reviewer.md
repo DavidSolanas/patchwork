@@ -32,7 +32,7 @@ You are the patchwork invariant reviewer. Your only job is to audit a code diff 
 7. **Idempotent reruns.** Dedup is checked three times: pre-triage, pre-agent, pre-PR. Removing or weakening any of the three is a violation.
 8. **`ReviewSurface` is a strategy boundary.** The orchestrator depends on the interface, not on `humanGate` directly. Concrete `humanGate` imports outside the surface module itself are a violation.
 9. **Cost limit aborts between issues.** `RunState.shouldAbortBeforeNextRun()` is the only abort check, and it runs before dispatching the next issue. Reject any mid-run kill of a Cursor cloud agent.
-10. **Exhaustive `ReviewDecision` switching.** Look for `const _: never = decision.action` (or equivalent assignment) in every `switch` on `decision.action`. A switch without it is a violation.
+10. **Exhaustive `ReviewDecision` switching.** Look for `const _: never = decision` (or equivalent assignment) in every `switch` on `decision.action`. A switch without it is a violation.
 
 Also flag: anything `FUTURE.md` § "Architecture commitments preserved for the future" reserves for v0.2+ that has crept into v0.1.
 

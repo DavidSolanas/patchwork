@@ -203,6 +203,12 @@ describe('runAgent', () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
     mockNoTestFiles();
+    // commitSha is now fetched post-hoc via repos.getBranch (the SDK does not
+    // expose the run's HEAD SHA). The other success-path tests rely on the
+    // best-effort fallback to '' in fetchHeadSha and don't need this stub.
+    nock('https://api.github.com')
+      .get('/repos/upstream/repo/branches/patchwork%2Fissue-42-crash-on-empty-input')
+      .reply(200, { commit: { sha: 'abc123' } });
 
     const cursor = mockCursor({
       snapshot: {
@@ -210,7 +216,6 @@ describe('runAgent', () => {
         output: 'preamble\n\nFixed it by handling the empty case.',
         diff: 'diff --git a/x b/x\n+ok\n',
         branch: 'patchwork/issue-42-crash-on-empty-input',
-        commitSha: 'abc123',
       },
     });
     const result = await runAgent(makeIssue(), target, {

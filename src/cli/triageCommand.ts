@@ -1,5 +1,3 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_CONFIG_PATH, DEFAULT_TRIAGE_MODEL, TRIAGE_FILE } from '../config/defaults.js';
 import { loadConfig, type PatchworkConfig } from '../config/load.js';
@@ -10,8 +8,10 @@ import { makeOctokit, type Octokit } from '../github/octokit.js';
 import { scoreIssue } from '../github/scoreIssue.js';
 import { priceFor } from '../reporter/costs.js';
 import { ConsoleReporter } from '../reporter/console.js';
+import { escapeCell, truncate } from '../reporter/markdown.js';
 import { RunState } from '../reporter/runState.js';
 import { PatchworkError, type IssueRef, type TriageScore } from '../types.js';
+import { atomicWriteFile } from '../util/atomicWrite.js';
 import { preflight } from './preflight.js';
 
 export interface TriageCommandOptions {
@@ -120,7 +120,6 @@ async function writeTriageReport(
   config: PatchworkConfig,
   outPath: string,
 ): Promise<void> {
-  await fs.mkdir(path.dirname(outPath), { recursive: true });
   const lines: string[] = [];
   lines.push('# Patchwork triage report');
   lines.push('');
@@ -141,18 +140,7 @@ async function writeTriageReport(
     lines.push('| _(none)_ | | | | | |');
   }
   lines.push('');
-  const tmp = `${outPath}.tmp`;
-  await fs.writeFile(tmp, lines.join('\n') + '\n', 'utf8');
-  await fs.rename(tmp, outPath);
-}
-
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + '…';
-}
-
-function escapeCell(s: string): string {
-  return s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  await atomicWriteFile(outPath, lines.join('\n') + '\n');
 }
 
 // Re-export TargetConfig so the triage report can be tested with a typed harness.

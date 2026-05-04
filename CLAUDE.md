@@ -46,7 +46,7 @@ These are safety-critical. Violating any of them is a bug, regardless of how con
 7. **Idempotent reruns.** Dedup is checked three times: pre-triage, pre-agent, pre-PR. A second run over the same `targets.yaml` must never duplicate PRs.
 8. **`ReviewSurface` is a strategy boundary.** The pipeline depends on the `ReviewSurface` interface, never on `humanGate` directly. Future web/Slack surfaces must plug in without changing the orchestrator.
 9. **Cost limit aborts between issues, never mid-run.** Cursor cloud agents are durable; killing them mid-run wastes the spend. `RunState.shouldAbortBeforeNextRun()` is the only check, and it runs before dispatching the next issue.
-10. **Exhaustive switching on `ReviewDecision`.** Use `const _: never = decision.action` so adding a new action is a build error until handled.
+10. **Exhaustive switching on `ReviewDecision`.** Use `const _: never = decision` so adding a new action is a build error until handled.
 
 ## Architecture orientation
 

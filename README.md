@@ -222,8 +222,8 @@ Patchwork is a **batch** workflow — every issue is a fresh isolated run, laten
 |---|---|---|---|---|
 | `composer-2-standard` | $0.50 | $2.50 | $0.20 | **Default.** Routine bug fixes, batch-friendly. |
 | `composer-2-fast` | $1.50 | $7.50 | $0.35 | Latency-sensitive interactive sessions (rare in patchwork). |
-| `claude-sonnet-4-6` | $3.00 | $15.00 | — | Issues triage flags as `escalate` — moderate complexity. |
-| `claude-opus-4-7` | $15.00 | $25.00 | — | High-stakes contributions where you want the strongest reasoning. |
+| `claude-sonnet-4-6` | $3.00 | $15.00 | $0.30 | Issues triage flags as `escalate` — moderate complexity. |
+| `claude-opus-4-7` | $5.00 | $25.00 | $0.50 | High-stakes contributions where you want the strongest reasoning. |
 
 Cost is tracked exactly via Cursor's `onStep` / `onDelta` event streams — there is no estimation layer.
 

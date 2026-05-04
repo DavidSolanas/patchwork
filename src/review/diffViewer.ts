@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import parseDiff from 'parse-diff';
+import { sanitizeUntrusted } from '../util/sanitize.js';
 
 export interface RenderDiffOptions {
   /** Maximum number of changed lines (added + deleted + context) printed per file. Defaults to 200. */
@@ -38,15 +39,16 @@ export function renderDiff(diff: string, opts: RenderDiffOptions = {}): string {
 
     const lines: string[] = [];
     for (const chunk of file.chunks) {
-      lines.push(chalk.magenta(chunk.content));
+      lines.push(chalk.magenta(sanitizeUntrusted(chunk.content)));
       for (const change of chunk.changes) {
         // change.content already includes the leading +/-/' '
+        const safe = sanitizeUntrusted(change.content);
         if (change.type === 'add') {
-          lines.push(chalk.green(change.content));
+          lines.push(chalk.green(safe));
         } else if (change.type === 'del') {
-          lines.push(chalk.red(change.content));
+          lines.push(chalk.red(safe));
         } else {
-          lines.push(change.content);
+          lines.push(safe);
         }
       }
     }
@@ -65,7 +67,7 @@ export function renderDiff(diff: string, opts: RenderDiffOptions = {}): string {
   return out.join('\n').trimEnd();
 }
 
-function isBinary(file: parseDiff.File): boolean {
+export function isBinary(file: parseDiff.File): boolean {
   // parse-diff doesn't expose a binary flag, but binary diffs have no chunks
   // and an `index` line of the form `Binary files ... differ`.
   if (file.chunks.length > 0) return false;

@@ -14,6 +14,7 @@ import { ConsoleReporter } from '../reporter/console.js';
 import { priceFor } from '../reporter/costs.js';
 import { writeSummary } from '../reporter/markdown.js';
 import { RunState } from '../reporter/runState.js';
+import { isBinary } from '../review/diffViewer.js';
 import { TerminalReviewSurface } from '../review/humanGate.js';
 import { DeferredQueue } from '../review/queue.js';
 import {
@@ -176,6 +177,10 @@ export async function executeRun(
       reporter.issueAttempting(issue);
       const result = await runAgent(issue, target, { cursor, octokit, dedupCache });
       reporter.agentResult(result);
+      // The runAgent pre-agent dedup re-check (invariant #7, second checkpoint) returns
+      // skip with an empty cursorRunId without ever dispatching. Don't double-count it
+      // as an attempt — the orchestrator's pre-triage check already accounted for it.
+      if (result.cursorRunId === '' && result.outcome.kind === 'skip') continue;
       state.recordResult(result);
 
       if (result.outcome.kind !== 'success') continue;
@@ -264,8 +269,3 @@ export function buildReviewPayload(result: SuccessfulAgentRunResult): ReviewPayl
   };
 }
 
-function isBinary(file: parseDiff.File): boolean {
-  if (file.chunks.length > 0) return false;
-  if (file.index?.some((line) => /Binary files .* differ/i.test(line))) return true;
-  return file.additions === 0 && file.deletions === 0;
-}

@@ -1021,7 +1021,7 @@ Checks:
 14. await writeSummary(stats, '.patchwork/SUMMARY.md')
 ```
 
-The `switch` includes `const _: never = decision.action` after the cases for exhaustiveness.
+The `switch` includes `const _: never = decision` after the cases for exhaustiveness.
 
 ### Other commands
 

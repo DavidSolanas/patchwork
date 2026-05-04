@@ -33,9 +33,11 @@ export interface StartRunInput {
 export interface RunSnapshot {
   status: 'queued' | 'running' | 'completed' | 'failed';
   output: string;
+  /** Unified diff extracted from the agent's `<patch>...</patch>` block, if present. */
   diff?: string;
   branch?: string;
-  commitSha?: string;
+  // commitSha is intentionally absent: the SDK does not expose the run's HEAD
+  // SHA, so runAgent fetches it post-hoc via `octokit.repos.getBranch`.
   error?: string;
 }
 
@@ -130,14 +132,25 @@ async function* streamEvents(handle: RunHandle): AsyncGenerator<CursorEvent, voi
   }
 }
 
+// Matches the `<patch>...</patch>` block that buildPrompt instructs the agent
+// to wrap its unified diff in. Capture group 1 holds the raw diff body.
+const PATCH_BLOCK = /<patch>([\s\S]*?)<\/patch>/;
+
 async function snapshotOf(handle: RunHandle): Promise<RunSnapshot> {
   const status = mapStatus(handle.run.status);
   const branch = handle.run.git?.branches?.[0]?.branch;
   const result = handle.run.result;
+  const raw = handle.output || (result ?? '');
+  const m = PATCH_BLOCK.exec(raw);
+  const diff = m ? m[1]!.trim() : undefined;
+  // Strip the patch block from `output` so parseResult.extractSummary's
+  // last-paragraph heuristic doesn't end up returning the diff itself.
+  const output = diff !== undefined ? raw.replace(PATCH_BLOCK, '').trim() : raw;
   return {
     status,
-    output: handle.output || (result ?? ''),
+    output,
     branch,
+    diff,
   };
 }
 

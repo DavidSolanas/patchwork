@@ -1,6 +1,5 @@
 import { loadConfig, type PatchworkConfig } from '../config/load.js';
 import { DEFAULT_CONFIG_PATH, DEFAULT_TRIAGE_MODEL } from '../config/defaults.js';
-import { makeOctokit, type Octokit } from '../github/octokit.js';
 import { priceFor } from '../reporter/costs.js';
 import { preflight } from './preflight.js';
 
@@ -9,7 +8,6 @@ export interface CostCommandOptions {
 }
 
 export interface CostCommandDeps {
-  octokit: Octokit;
   stdout?: NodeJS.WriteStream;
 }
 
@@ -49,7 +47,7 @@ export async function costCommand(
 }
 
 function buildDefaultDeps(): CostCommandDeps {
-  return { octokit: makeOctokit(process.env.GITHUB_TOKEN ?? '') };
+  return {};
 }
 
 export function executeCost(

@@ -1,6 +1,5 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import type { AgentRunResult, RunStats } from '../types.js';
+import { atomicWriteFile } from '../util/atomicWrite.js';
 
 /**
  * Write a human-readable run summary to `path` (default `.patchwork/SUMMARY.md`).
@@ -10,12 +9,7 @@ import type { AgentRunResult, RunStats } from '../types.js';
  * half-written summary.
  */
 export async function writeSummary(stats: RunStats, outPath: string): Promise<void> {
-  const dir = path.dirname(outPath);
-  await fs.mkdir(dir, { recursive: true });
-  const body = renderSummary(stats);
-  const tmp = `${outPath}.tmp`;
-  await fs.writeFile(tmp, body, 'utf8');
-  await fs.rename(tmp, outPath);
+  await atomicWriteFile(outPath, renderSummary(stats));
 }
 
 export function renderSummary(stats: RunStats): string {
@@ -102,11 +96,11 @@ function formatUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-function truncate(s: string, max: number): string {
+export function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return s.slice(0, max - 1) + '…';
 }
 
-function escapeCell(s: string): string {
+export function escapeCell(s: string): string {
   return s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 }

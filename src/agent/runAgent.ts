@@ -1,11 +1,11 @@
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { STATE_DIR, STATE_FILE } from '../config/defaults.js';
+import { STATE_FILE } from '../config/defaults.js';
 import { dedupKey, findExistingPR, type DedupCache } from '../github/deduplication.js';
 import { ensureFork } from '../github/forkRepo.js';
 import type { Octokit } from '../github/octokit.js';
 import { priceFor } from '../reporter/costs.js';
 import type { AgentRunResult, IssueRef, TokenUsage } from '../types.js';
+import { atomicWriteFile } from '../util/atomicWrite.js';
 import { buildPrompt } from './buildPrompt.js';
 import type { CursorClient, CursorEvent, RunSnapshot } from './cursorClient.js';
 import { detectTestCommands } from './detectTests.js';
@@ -225,14 +225,19 @@ export async function runAgent(
       testingNotes,
     );
   }
+  const successBranch = snap.branch ?? branch;
+  // The Cursor SDK does not expose the run's HEAD SHA — fetch it post-hoc from
+  // the bound repo. Best-effort: a failure here (network, fresh push not yet
+  // visible, branch missing) returns '' rather than aborting the success path.
+  const commitSha = await fetchHeadSha(deps.octokit, boundRepo, successBranch);
   return finish(
     issue,
     target.model,
     {
       kind: 'success',
-      branch: snap.branch ?? branch,
+      branch: successBranch,
       diff: snap.diff ?? '',
-      commitSha: snap.commitSha ?? '',
+      commitSha,
       agentSummary: parsed.agentSummary,
     },
     tokens,
@@ -241,6 +246,23 @@ export async function runAgent(
     boundRepo,
     testingNotes,
   );
+}
+
+async function fetchHeadSha(
+  octokit: Octokit,
+  boundRepo: { owner: string; name: string },
+  branch: string,
+): Promise<string> {
+  try {
+    const res = await octokit.repos.getBranch({
+      owner: boundRepo.owner,
+      repo: boundRepo.name,
+      branch,
+    });
+    return res.data.commit.sha ?? '';
+  } catch {
+    return '';
+  }
 }
 
 function finish(
@@ -332,15 +354,7 @@ async function readState(statePath: string): Promise<StateFile> {
 }
 
 async function writeStateAtomic(statePath: string, state: StateFile): Promise<void> {
-  const dir = path.dirname(statePath);
-  if (dir && dir !== '.' && dir !== STATE_DIR) {
-    await fs.mkdir(dir, { recursive: true });
-  } else {
-    await fs.mkdir(dir || STATE_DIR, { recursive: true });
-  }
-  const tmp = `${statePath}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
-  await fs.rename(tmp, statePath);
+  await atomicWriteFile(statePath, JSON.stringify(state, null, 2));
 }
 
 function defaultSleep(ms: number): Promise<void> {

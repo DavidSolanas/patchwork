@@ -182,9 +182,13 @@ function branchUrl(payload: ReviewPayload): string {
 function defaultOpenExternal(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const platform = process.platform;
-    const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-    const args = platform === 'win32' ? ['', url] : [url];
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, shell: platform === 'win32' });
+    // Windows: avoid `cmd.exe /c start` with shell:true — branch names flow into
+    // the URL, and a crafted branch could include `&`/`|`/`^`/`"` for cmd injection.
+    // `rundll32 url.dll,FileProtocolHandler <url>` invokes the OS protocol handler
+    // directly, so the URL stays an argv element with no shell parsing.
+    const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'rundll32' : 'xdg-open';
+    const args = platform === 'win32' ? ['url.dll,FileProtocolHandler', url] : [url];
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
     child.once('error', reject);
     child.once('spawn', () => {
       child.unref();
