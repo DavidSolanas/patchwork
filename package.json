@@ -17,7 +17,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.30.0",
+    "@anthropic-ai/sdk": "^0.93.0",
     "@cursor/sdk": "latest",
     "@octokit/plugin-retry": "^7.0.0",
     "@octokit/plugin-throttling": "^9.0.0",
@@ -37,6 +37,10 @@
     "nock": "^14.0.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.59.1",
-    "vitest": "^2.0.0"
+    "vitest": "^4.0.0"
+  },
+  "overrides": {
+    "undici": "^7.0.0",
+    "tar": "^7.5.11"
   }
 }
