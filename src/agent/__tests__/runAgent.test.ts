@@ -106,6 +106,12 @@ function mockNoTestFiles() {
   }
 }
 
+function mockDefaultBranch(owner = 'upstream', name = 'repo', branch = 'main') {
+  nock('https://api.github.com')
+    .get(`/repos/${owner}/${name}`)
+    .reply(200, { default_branch: branch });
+}
+
 let tmpStateDir: string;
 
 beforeAll(() => nock.disableNetConnect());
@@ -155,6 +161,7 @@ describe('runAgent', () => {
   it('reports a SKIP outcome when the agent emits SKIP: <reason>', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     const cursor = mockCursor({
@@ -182,6 +189,7 @@ describe('runAgent', () => {
   it('reports no_diff when the agent finishes without producing a diff', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     const cursor = mockCursor({
@@ -202,6 +210,7 @@ describe('runAgent', () => {
   it('builds a success outcome when the agent completes with a diff', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
     // commitSha is now fetched post-hoc via repos.getBranch (the SDK does not
     // expose the run's HEAD SHA). The other success-path tests rely on the
@@ -240,6 +249,7 @@ describe('runAgent', () => {
   it('cancels the run and returns an error outcome on poll timeout', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     const cursor = mockCursor({
@@ -264,6 +274,7 @@ describe('runAgent', () => {
   it('resumes the event stream from lastCursor on iterator throw', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     // Stay 'running' until the event task has thrown + resumed. The mock's
@@ -301,6 +312,7 @@ describe('runAgent', () => {
   it('checkpoints state on startup and clears it on terminal outcome', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     const cursor = mockCursor({
@@ -324,6 +336,7 @@ describe('runAgent', () => {
   it('returns an error outcome when the run finishes in failed status', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
+    mockDefaultBranch();
     mockNoTestFiles();
 
     const cursor = mockCursor({
@@ -350,6 +363,7 @@ describe('runAgent', () => {
     nock('https://api.github.com')
       .get('/repos/alice/repo')
       .reply(200, { parent: { full_name: 'upstream/repo' } });
+    mockDefaultBranch('alice', 'repo');
     mockNoTestFiles();
 
     const cursor = mockCursor({
