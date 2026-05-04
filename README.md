@@ -70,6 +70,53 @@ Patchwork inverts the trade-off. The expensive, slow steps — fetching issues, 
   - `ANTHROPIC_API_KEY` — for the Haiku triage step
   - `CURSOR_API_KEY` — for the Cursor SDK
 
+### GitHub token setup
+
+Patchwork needs a GitHub Personal Access Token (PAT) to read issues, fork repos, and open PRs under your account. Two token types are supported.
+
+---
+
+#### Option A — Fine-grained PAT (recommended)
+
+Fine-grained tokens are more auditable and follow the principle of least privilege.
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+2. Set an expiration (90 days is a reasonable default).
+3. Under **Repository access**, choose **All repositories** (patchwork targets repos you don't own, so you cannot enumerate them upfront).
+4. Under **Permissions → Repository permissions**, grant:
+
+| Permission | Access | Why |
+|---|---|---|
+| **Contents** | Read and write | Read code; push branches to your fork |
+| **Issues** | Read-only | Fetch and read issue bodies |
+| **Metadata** | Read-only | Required for all fine-grained tokens |
+| **Pull requests** | Read and write | Check for existing PRs (dedup); open the final PR |
+
+> **Note on forking.** Forking a repo you don't own creates a new repo in _your_ account. The fork itself is created via the Issues/Contents APIs on the upstream side (read-only) and lands in your account. No extra permission beyond the four above is required.
+
+5. Click **Generate token** and copy the value to `GITHUB_TOKEN`.
+
+---
+
+#### Option B — Classic PAT
+
+Simpler to set up, broader in scope.
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token**.
+2. Choose an expiration.
+3. Select scopes:
+   - **`public_repo`** — sufficient if you only target public repositories (most open-source contribution workflows).
+   - **`repo`** — required if any target is a private repository (grants full read/write on all your repos).
+4. Click **Generate token** and copy the value to `GITHUB_TOKEN`.
+
+---
+
+#### Which to use?
+
+Use a fine-grained PAT unless your targets include private repos that belong to organisations where fine-grained tokens are disabled by the org admin. Classic PATs with `repo` scope are equivalent in power to your full GitHub account — treat them accordingly.
+
+---
+
 ### Install
 
 ```bash
@@ -176,7 +223,7 @@ Patchwork is a **batch** workflow — every issue is a fresh isolated run, laten
 | `composer-2-standard` | $0.50 | $2.50 | $0.20 | **Default.** Routine bug fixes, batch-friendly. |
 | `composer-2-fast` | $1.50 | $7.50 | $0.35 | Latency-sensitive interactive sessions (rare in patchwork). |
 | `claude-sonnet-4-6` | $3.00 | $15.00 | — | Issues triage flags as `escalate` — moderate complexity. |
-| `claude-opus-4-7` | $15.00 | $75.00 | — | High-stakes contributions where you want the strongest reasoning. |
+| `claude-opus-4-7` | $15.00 | $25.00 | — | High-stakes contributions where you want the strongest reasoning. |
 
 Cost is tracked exactly via Cursor's `onStep` / `onDelta` event streams — there is no estimation layer.
 

@@ -912,7 +912,7 @@ export function writeSummary(stats: RunStats, path: string): Promise<void>;
 
 ---
 
-## Phase 6 — CLI, polish, and examples
+## Phase 6 — CLI, polish, and examples  ✅ DONE
 
 **Goal:** the user-facing surface.
 

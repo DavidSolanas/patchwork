@@ -1,5 +1,7 @@
 export const DEFAULT_MODEL = 'composer-2-standard';
 
+export const DEFAULT_CONFIG_PATH = 'config/targets.yaml';
+
 export const DEFAULT_TRIAGE_MODEL = 'claude-haiku-4-5-20251001';
 
 export const DEFAULT_MAX_ISSUES = 5;
