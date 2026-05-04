@@ -74,10 +74,14 @@ export async function runAgent(
   const boundRepo = { owner: fork.owner, name: fork.name };
   const repoUrl = `https://github.com/${boundRepo.owner}/${boundRepo.name}`;
 
-  // 3. Branch name.
+  // 3. Default branch (required by the Cursor SDK as startingRef).
+  const repoMeta = await deps.octokit.repos.get({ owner: boundRepo.owner, repo: boundRepo.name });
+  const defaultBranch = repoMeta.data.default_branch;
+
+  // 4. Branch name (fallback label if the SDK doesn't return a branch in git info).
   const branch = `patchwork/issue-${issue.number}-${slugify(issue.title)}`;
 
-  // 4. Test detection (best-effort against upstream — that's where the
+  // 5. Test detection (best-effort against upstream — that's where the
   // canonical tooling lives).
   const testHints = await detectTestCommands({
     octokit: deps.octokit,
@@ -89,20 +93,20 @@ export async function runAgent(
       ? `Test commands detected: ${testHints.join(', ')}`
       : 'No test commands detected.';
 
-  // 5. Prompt.
+  // 6. Prompt.
   const prompt = buildPrompt(issue, { repoUrl, testHints });
 
-  // 6. Dispatch.
+  // 7. Dispatch.
   const start = await deps.cursor.startRun({
     repoUrl,
-    branch,
+    startingRef: defaultBranch,
     prompt,
     model: target.model,
     autoCreatePR: false,
   });
   const runId = start.runId;
 
-  // 7. Checkpoint immediately after startRun. State writes are serialised
+  // 8. Checkpoint immediately after startRun. State writes are serialised
   // through `stateWrites` because both the event consumer and the post-terminal
   // clearState run concurrently and would otherwise race on the .tmp + rename
   // dance.
@@ -116,7 +120,7 @@ export async function runAgent(
     checkpointState(statePath, issue, runId, lastCursor, target.model, boundRepo),
   );
 
-  // 8. Two cooperative loops.
+  // 9. Two cooperative loops.
   let eventStream: AsyncIterable<CursorEvent> = start.events;
   let stop = false;
 

@@ -15,7 +15,7 @@ import type { TokenUsage } from '../types.js';
 
 export interface StartRunInput {
   repoUrl: string;
-  branch: string;
+  startingRef: string;
   prompt: string;
   model: string;
   /**
@@ -67,7 +67,7 @@ export function makeCursorClient(apiKey: string): CursorClient {
         apiKey,
         model: { id: input.model },
         cloud: {
-          repos: [{ url: input.repoUrl, startingRef: input.branch }],
+          repos: [{ url: input.repoUrl, startingRef: input.startingRef }],
           autoCreatePR: input.autoCreatePR,
         },
       });
