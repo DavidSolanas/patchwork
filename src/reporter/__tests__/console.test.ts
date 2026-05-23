@@ -119,4 +119,17 @@ describe('ConsoleReporter (non-TTY)', () => {
     expect(out).toContain('deferred: later');
     expect(out).toContain('opened externally');
   });
+
+  it('shows cost unknown when token telemetry is unavailable', () => {
+    const stream = new CaptureStream() as unknown as NodeJS.WriteStream;
+    const r = new ConsoleReporter(stream);
+    r.agentResult({
+      ...result('success'),
+      tokens: { input: 0, output: 0, cacheRead: 0 },
+      costUsd: 0,
+    });
+    const out = (stream as unknown as CaptureStream).text();
+    expect(out).toContain('cost unknown');
+    expect(out).not.toContain('$0.00');
+  });
 });

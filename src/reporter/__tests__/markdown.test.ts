@@ -80,6 +80,25 @@ describe('renderSummary', () => {
     const md = renderSummary(baseStats({ perIssue: [] }));
     expect(md).toContain('| _(none)_ |');
   });
+
+  it('shows cost unknown when token telemetry is unavailable', () => {
+    const md = renderSummary(
+      baseStats({
+        totalCostUsd: 0,
+        perIssue: [
+          result({
+            tokens: { input: 0, output: 0, cacheRead: 0 },
+            costUsd: 0,
+            outcome: { kind: 'success', branch: 'fix/x', diff: '', commitSha: 'a', agentSummary: 's' },
+          }),
+        ],
+      }),
+    );
+    expect(md).toContain('- **Total cost:** cost unknown');
+    expect(md).toMatch(/\| cost unknown \|$/m);
+    expect(md).toContain('- Cost: cost unknown');
+    expect(md).not.toContain('$0.00');
+  });
 });
 
 describe('writeSummary', () => {

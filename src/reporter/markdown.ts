@@ -1,5 +1,6 @@
 import type { AgentRunResult, RunStats } from '../types.js';
 import { atomicWriteFile } from '../util/atomicWrite.js';
+import { formatCostUsd, formatTotalCostUsd } from './costs.js';
 
 /**
  * Write a human-readable run summary to `path` (default `.patchwork/SUMMARY.md`).
@@ -18,7 +19,7 @@ export function renderSummary(stats: RunStats): string {
   lines.push('');
   lines.push(`- **Started:** ${stats.startedAt}`);
   lines.push(`- **Ended:**   ${stats.endedAt ?? '(in progress)'}`);
-  lines.push(`- **Total cost:** ${formatUsd(stats.totalCostUsd)}${stats.costLimitHit ? ' _(cost limit hit)_' : ''}`);
+  lines.push(`- **Total cost:** ${formatTotalCostUsd(stats)}${stats.costLimitHit ? ' _(cost limit hit)_' : ''}`);
   lines.push('');
   lines.push(`- Issues considered: ${stats.issuesConsidered}`);
   lines.push(`- Issues scored:     ${stats.issuesScored}`);
@@ -36,7 +37,7 @@ export function renderSummary(stats: RunStats): string {
     const repo = `${r.issue.repo.owner}/${r.issue.repo.name}`;
     const title = escapeCell(truncate(r.issue.title, 60));
     lines.push(
-      `| ${repo} | ${r.issue.number} | ${title} | ${r.outcome.kind} | ${r.model} | ${formatUsd(r.costUsd)} |`,
+      `| ${repo} | ${r.issue.number} | ${title} | ${r.outcome.kind} | ${r.model} | ${formatCostUsd(r.costUsd, r.tokens)} |`,
     );
   }
   if (stats.perIssue.length === 0) {
@@ -61,7 +62,7 @@ function renderDetails(r: AgentRunResult): string {
   inner.push(
     `- Tokens: input=${r.tokens.input}, output=${r.tokens.output}, cacheRead=${r.tokens.cacheRead}`,
   );
-  inner.push(`- Cost: ${formatUsd(r.costUsd)}`);
+  inner.push(`- Cost: ${formatCostUsd(r.costUsd, r.tokens)}`);
   inner.push(`- Duration: ${r.startedAt} → ${r.endedAt}`);
   inner.push(`- Cursor run: \`${r.cursorRunId}\``);
   switch (r.outcome.kind) {
@@ -90,10 +91,6 @@ function renderDetails(r: AgentRunResult): string {
     '',
     '</details>',
   ].join('\n');
-}
-
-function formatUsd(n: number): string {
-  return `$${n.toFixed(2)}`;
 }
 
 export function truncate(s: string, max: number): string {
