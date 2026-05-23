@@ -32,7 +32,10 @@ export interface StartRunInput {
 
 export interface RunSnapshot {
   status: 'queued' | 'running' | 'completed' | 'failed';
+  /** Agent output with structured blocks removed. */
   output: string;
+  /** Patch-stripped agent text; retains `<summary>` for parseResult. */
+  parseOutput?: string;
   /** Unified diff extracted from the agent's `<patch>...</patch>` block, if present. */
   diff?: string;
   branch?: string;
@@ -135,6 +138,7 @@ async function* streamEvents(handle: RunHandle): AsyncGenerator<CursorEvent, voi
 // Matches the `<patch>...</patch>` block that buildPrompt instructs the agent
 // to wrap its unified diff in. Capture group 1 holds the raw diff body.
 const PATCH_BLOCK = /<patch>([\s\S]*?)<\/patch>/;
+const SUMMARY_BLOCK = /<summary>([\s\S]*?)<\/summary>/;
 
 async function snapshotOf(handle: RunHandle): Promise<RunSnapshot> {
   const status = mapStatus(handle.run.status);
@@ -143,12 +147,12 @@ async function snapshotOf(handle: RunHandle): Promise<RunSnapshot> {
   const raw = handle.output || (result ?? '');
   const m = PATCH_BLOCK.exec(raw);
   const diff = m ? m[1]!.trim() : undefined;
-  // Strip the patch block from `output` so parseResult.extractSummary's
-  // last-paragraph heuristic doesn't end up returning the diff itself.
-  const output = diff !== undefined ? raw.replace(PATCH_BLOCK, '').trim() : raw;
+  const parseOutput = (diff !== undefined ? raw.replace(PATCH_BLOCK, '') : raw).trim();
+  const output = parseOutput.replace(SUMMARY_BLOCK, '').trim();
   return {
     status,
     output,
+    parseOutput,
     branch,
     diff,
   };

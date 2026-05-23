@@ -1,4 +1,5 @@
 const SKIP_LINE = /^SKIP:\s*(.+)$/m;
+const SUMMARY_BLOCK = /<summary>([\s\S]*?)<\/summary>/;
 const SUMMARY_MAX_CHARS = 1500;
 
 export type ParsedAgentOutcome =
@@ -36,18 +37,28 @@ export function parseResult(raw: ParseResultInput): ParsedAgentOutcome {
 }
 
 /**
- * Heuristic: take the last non-empty, non-code paragraph from the agent's
- * output and trim to `SUMMARY_MAX_CHARS`. This keeps the PR body focused
- * on the agent's narrative summary rather than its tool-call transcript.
+ * Prefer a structured `<summary>...</summary>` block when present; otherwise
+ * take the last non-empty, non-code paragraph from the agent's output and trim
+ * to `SUMMARY_MAX_CHARS`.
  */
 function extractSummary(output: string): string {
+  const structured = SUMMARY_BLOCK.exec(output);
+  if (structured?.[1] !== undefined) {
+    return clampSummary(structured[1].trim());
+  }
+
   const paragraphs = output
+    .replace(SUMMARY_BLOCK, '')
     .split(/\n\s*\n/)
     .map(p => p.trim())
     .filter(p => p.length > 0)
     .filter(p => !p.startsWith('```') && !p.endsWith('```'));
 
   const last = paragraphs[paragraphs.length - 1] ?? '';
-  if (last.length <= SUMMARY_MAX_CHARS) return last;
-  return last.slice(0, SUMMARY_MAX_CHARS) + '…';
+  return clampSummary(last);
+}
+
+function clampSummary(text: string): string {
+  if (text.length <= SUMMARY_MAX_CHARS) return text;
+  return text.slice(0, SUMMARY_MAX_CHARS) + '…';
 }

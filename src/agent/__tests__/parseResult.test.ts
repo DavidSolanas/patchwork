@@ -40,6 +40,36 @@ describe('parseResult', () => {
     }
   });
 
+  it('prefers a structured <summary> block over the last-paragraph heuristic', () => {
+    const output = [
+      'Meta: pushed branch cursor/fix-42.',
+      '',
+      '<summary>',
+      'Handle empty arrays in parseInput so callers get an empty list instead of a crash.',
+      '</summary>',
+    ].join('\n');
+    const out = parseResult({ output, diff: 'diff --git a/x b/x\n+ok' });
+    expect(out.kind).toBe('success');
+    if (out.kind === 'success') {
+      expect(out.agentSummary).toBe(
+        'Handle empty arrays in parseInput so callers get an empty list instead of a crash.',
+      );
+    }
+  });
+
+  it('falls back to the last-paragraph heuristic when no <summary> block is present', () => {
+    const output = [
+      'Tool transcript omitted.',
+      '',
+      'Added validation for empty input arrays.',
+    ].join('\n');
+    const out = parseResult({ output, diff: 'diff --git a/x b/x\n+ok' });
+    expect(out.kind).toBe('success');
+    if (out.kind === 'success') {
+      expect(out.agentSummary).toBe('Added validation for empty input arrays.');
+    }
+  });
+
   it('truncates summaries longer than 1500 chars', () => {
     const long = 'a'.repeat(2000);
     const out = parseResult({ output: long, diff: 'diff' });
