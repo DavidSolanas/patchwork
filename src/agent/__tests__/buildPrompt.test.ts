@@ -113,21 +113,28 @@ describe('buildPrompt', () => {
     expect(out.length).toBeLessThan(huge.length);
   });
 
-  it('lists test hints when present, otherwise the no-tests fallback', () => {
+  it('lists test hints with environment-uncertainty framing when present', () => {
     const withHints = buildPrompt(makeIssue(), {
       repoUrl: 'https://github.com/o/r',
       testHints: ['npm test', 'pytest'],
       nonce: NONCE,
     });
+    expect(withHints).toContain(
+      'These test commands were detected in the repository. Run them after making your changes if the runner is available in your environment.',
+    );
+    expect(withHints).toContain('If it is not, state that explicitly');
     expect(withHints).toContain('npm test');
     expect(withHints).toContain('pytest');
+  });
 
+  it('states explicit fallback when no test hints are detected', () => {
     const without = buildPrompt(makeIssue(), {
       repoUrl: 'https://github.com/o/r',
       testHints: [],
       nonce: NONCE,
     });
-    expect(without).toContain('No tests detected — proceed with caution.');
+    expect(without).toContain('No test commands were detected in the repository.');
+    expect(without).toContain('if it is not, state that explicitly');
   });
 
   it('references the OSS skill file the agent loads', () => {

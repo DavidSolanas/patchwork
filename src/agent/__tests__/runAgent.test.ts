@@ -106,6 +106,19 @@ function mockNoTestFiles() {
   }
 }
 
+function mockNpmTestDetected() {
+  nock('https://api.github.com')
+    .get('/repos/upstream/repo/contents/package.json')
+    .reply(200, {
+      type: 'file',
+      encoding: 'base64',
+      content: Buffer.from(JSON.stringify({ scripts: { test: 'vitest run' } })).toString('base64'),
+    });
+  for (const p of ['pytest.ini', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'Makefile']) {
+    nock('https://api.github.com').get(`/repos/upstream/repo/contents/${p}`).reply(404, {});
+  }
+}
+
 function mockDefaultBranch(owner = 'upstream', name = 'repo', branch = 'main') {
   nock('https://api.github.com')
     .get(`/repos/${owner}/${name}`)
@@ -355,6 +368,50 @@ describe('runAgent', () => {
     if (result.outcome.kind === 'error') {
       expect(result.outcome.message).toBe('compile error');
     }
+  });
+
+  it('sets testingNotes to unverified-runner wording when test commands are detected', async () => {
+    mockNoExistingPR();
+    mockUserOwnsUpstream();
+    mockDefaultBranch();
+    mockNpmTestDetected();
+
+    const cursor = mockCursor({
+      snapshot: { status: 'completed', output: 'done', diff: 'diff' },
+    });
+    const result = await runAgent(makeIssue(), target, {
+      cursor,
+      octokit: makeTestOctokit(),
+      pollIntervalMs: 1,
+      pollTimeoutMs: 5_000,
+      statePath: statePath(),
+      sleep: noSleep,
+    });
+
+    expect(result.testingNotes).toBe(
+      'Test runner detected but environment availability unverified: npm test',
+    );
+  });
+
+  it('sets testingNotes when no test commands are detected', async () => {
+    mockNoExistingPR();
+    mockUserOwnsUpstream();
+    mockDefaultBranch();
+    mockNoTestFiles();
+
+    const cursor = mockCursor({
+      snapshot: { status: 'completed', output: 'done', diff: 'diff' },
+    });
+    const result = await runAgent(makeIssue(), target, {
+      cursor,
+      octokit: makeTestOctokit(),
+      pollIntervalMs: 1,
+      pollTimeoutMs: 5_000,
+      statePath: statePath(),
+      sleep: noSleep,
+    });
+
+    expect(result.testingNotes).toBe('No test commands detected.');
   });
 
   it('forks the repo when the user does not own upstream', async () => {
