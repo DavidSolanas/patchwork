@@ -90,7 +90,7 @@ export async function runAgent(
   });
   const testingNotes =
     testHints.length > 0
-      ? `Test commands detected: ${testHints.join(', ')}`
+      ? `Test runner detected but environment availability unverified: ${testHints.join(', ')}`
       : 'No test commands detected.';
 
   // 6. Prompt.
