@@ -90,7 +90,7 @@ export async function runAgent(
   });
   const testingNotes =
     testHints.length > 0
-      ? `Test commands detected: ${testHints.join(', ')}`
+      ? `Test runner detected but environment availability unverified: ${testHints.join(', ')}`
       : 'No test commands detected.';
 
   // 6. Prompt.
@@ -203,7 +203,7 @@ export async function runAgent(
   }
 
   const parsed = parseResult({ output: snap.parseOutput ?? snap.output, diff: snap.diff });
-  await clearState(statePath, issue);
+  await enqueueWrite(() => clearState(statePath, issue));
 
   if (parsed.kind === 'skip') {
     return finish(

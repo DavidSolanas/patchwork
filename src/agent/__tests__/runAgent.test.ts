@@ -1,9 +1,10 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import nock from 'nock';
 import { Octokit } from '@octokit/rest';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import * as atomicWrite from '../../util/atomicWrite.js';
 import { runAgent } from '../runAgent.js';
 import type { CursorClient, CursorEvent, RunSnapshot, StartRunInput } from '../cursorClient.js';
 import type { IssueRef } from '../../types.js';
@@ -106,6 +107,19 @@ function mockNoTestFiles() {
   }
 }
 
+function mockNpmTestDetected() {
+  nock('https://api.github.com')
+    .get('/repos/upstream/repo/contents/package.json')
+    .reply(200, {
+      type: 'file',
+      encoding: 'base64',
+      content: Buffer.from(JSON.stringify({ scripts: { test: 'vitest run' } })).toString('base64'),
+    });
+  for (const p of ['pytest.ini', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'Makefile']) {
+    nock('https://api.github.com').get(`/repos/upstream/repo/contents/${p}`).reply(404, {});
+  }
+}
+
 function mockDefaultBranch(owner = 'upstream', name = 'repo', branch = 'main') {
   nock('https://api.github.com')
     .get(`/repos/${owner}/${name}`)
@@ -120,6 +134,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   nock.cleanAll();
+  vi.restoreAllMocks();
   await fs.rm(tmpStateDir, { recursive: true, force: true });
 });
 afterAll(() => nock.enableNetConnect());
@@ -309,6 +324,64 @@ describe('runAgent', () => {
     expect(result.tokens.input).toBe(1 + 2 + 3);
   });
 
+  it('serializes clearState after a delayed checkpoint on success', async () => {
+    mockNoExistingPR();
+    mockUserOwnsUpstream();
+    mockDefaultBranch();
+    mockNoTestFiles();
+    nock('https://api.github.com')
+      .get('/repos/upstream/repo/branches/patchwork%2Fissue-42-crash-on-empty-input')
+      .reply(200, { commit: { sha: 'abc123' } });
+
+    const issueKey = 'upstream/repo#42';
+    let releaseCheckpoint!: () => void;
+    const checkpointGate = new Promise<void>(resolve => {
+      releaseCheckpoint = resolve;
+    });
+    let checkpointBlocked = false;
+    const writeBodies: string[] = [];
+    const originalWrite = atomicWrite.atomicWriteFile;
+    vi.spyOn(atomicWrite, 'atomicWriteFile').mockImplementation(async (p, body) => {
+      const str = String(body);
+      const parsed = JSON.parse(str) as { inFlight: Record<string, unknown> };
+      const rec = parsed.inFlight[issueKey];
+      if (rec && 'lastCursor' in rec && rec.lastCursor === '1') {
+        checkpointBlocked = true;
+        await checkpointGate;
+      }
+      await originalWrite(p, str);
+      writeBodies.push(str);
+    });
+
+    const cursor = mockCursor({
+      events: [{ type: 'delta', cursor: '1', tokens: { input: 1, output: 0, cacheRead: 0 } }],
+      snapshot: {
+        status: 'completed',
+        output: 'done',
+        diff: 'diff --git a/x b/x\n+ok\n',
+        branch: 'patchwork/issue-42-crash-on-empty-input',
+      },
+    });
+    const sp = statePath();
+    const runPromise = runAgent(makeIssue(), target, {
+      cursor,
+      octokit: makeTestOctokit(),
+      pollIntervalMs: 1,
+      pollTimeoutMs: 5_000,
+      statePath: sp,
+      sleep: noSleep,
+    });
+
+    await vi.waitFor(() => expect(checkpointBlocked).toBe(true));
+    releaseCheckpoint();
+    await runPromise;
+
+    expect(writeBodies.at(-1)).not.toContain(`"${issueKey}"`);
+    expect(JSON.parse(writeBodies.at(-1)!).inFlight).toEqual({});
+    const raw = await fs.readFile(sp, 'utf8');
+    expect(JSON.parse(raw).inFlight).toEqual({});
+  });
+
   it('checkpoints state on startup and clears it on terminal outcome', async () => {
     mockNoExistingPR();
     mockUserOwnsUpstream();
@@ -355,6 +428,50 @@ describe('runAgent', () => {
     if (result.outcome.kind === 'error') {
       expect(result.outcome.message).toBe('compile error');
     }
+  });
+
+  it('sets testingNotes to unverified-runner wording when test commands are detected', async () => {
+    mockNoExistingPR();
+    mockUserOwnsUpstream();
+    mockDefaultBranch();
+    mockNpmTestDetected();
+
+    const cursor = mockCursor({
+      snapshot: { status: 'completed', output: 'done', diff: 'diff' },
+    });
+    const result = await runAgent(makeIssue(), target, {
+      cursor,
+      octokit: makeTestOctokit(),
+      pollIntervalMs: 1,
+      pollTimeoutMs: 5_000,
+      statePath: statePath(),
+      sleep: noSleep,
+    });
+
+    expect(result.testingNotes).toBe(
+      'Test runner detected but environment availability unverified: npm test',
+    );
+  });
+
+  it('sets testingNotes when no test commands are detected', async () => {
+    mockNoExistingPR();
+    mockUserOwnsUpstream();
+    mockDefaultBranch();
+    mockNoTestFiles();
+
+    const cursor = mockCursor({
+      snapshot: { status: 'completed', output: 'done', diff: 'diff' },
+    });
+    const result = await runAgent(makeIssue(), target, {
+      cursor,
+      octokit: makeTestOctokit(),
+      pollIntervalMs: 1,
+      pollTimeoutMs: 5_000,
+      statePath: statePath(),
+      sleep: noSleep,
+    });
+
+    expect(result.testingNotes).toBe('No test commands detected.');
   });
 
   it('forks the repo when the user does not own upstream', async () => {

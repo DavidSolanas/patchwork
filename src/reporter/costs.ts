@@ -1,4 +1,4 @@
-import type { TokenUsage } from '../types.js';
+import type { RunStats, TokenUsage } from '../types.js';
 
 interface ModelPrice {
   inputPer1M: number;
@@ -53,4 +53,24 @@ export function priceFor(model: string, tokens: TokenUsage): number {
   const cacheReadCost = (cacheRate * tokens.cacheRead) / 1_000_000;
 
   return inputCost + outputCost + cacheReadCost;
+}
+
+export const COST_UNKNOWN_LABEL = 'cost unknown';
+
+export function isCostUnknown(tokens: TokenUsage, costUsd: number): boolean {
+  return costUsd === 0 && tokens.input === 0 && tokens.output === 0 && tokens.cacheRead === 0;
+}
+
+export function formatCostUsd(costUsd: number, tokens: TokenUsage): string {
+  return isCostUnknown(tokens, costUsd) ? COST_UNKNOWN_LABEL : `$${costUsd.toFixed(2)}`;
+}
+
+export function formatTotalCostUsd(stats: RunStats): string {
+  if (stats.totalCostUsd > 0) {
+    return `$${stats.totalCostUsd.toFixed(2)}`;
+  }
+  if (stats.perIssue.some((r) => isCostUnknown(r.tokens, r.costUsd))) {
+    return COST_UNKNOWN_LABEL;
+  }
+  return `$${stats.totalCostUsd.toFixed(2)}`;
 }

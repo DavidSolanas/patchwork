@@ -42,8 +42,12 @@ export function buildPrompt(issue: IssueRef, ctx: BuildPromptContext): string {
 
   const testGuidance =
     ctx.testHints.length > 0
-      ? ctx.testHints.join('\n')
-      : 'No tests detected — proceed with caution.';
+      ? [
+          'These test commands were detected in the repository. Run them after making your changes if the runner is available in your environment. If it is not, state that explicitly — do not leave the testing notes blank.',
+          '',
+          ...ctx.testHints,
+        ].join('\n')
+      : 'No test commands were detected in the repository. Run relevant tests if the runner is available in your environment; if it is not, state that explicitly.';
 
   return [
     `You are working in ${ctx.repoUrl}. Fix issue #${issue.number}: "${safeTitle}".`,

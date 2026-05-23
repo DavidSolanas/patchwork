@@ -7,6 +7,7 @@ import type {
   RunStats,
   TriageScore,
 } from '../types.js';
+import { formatCostUsd, formatTotalCostUsd } from './costs.js';
 
 /**
  * Live progress reporter. One active `ora` spinner at a time; each lifecycle
@@ -52,7 +53,7 @@ export class ConsoleReporter {
   }
 
   agentResult(r: AgentRunResult): void {
-    const tag = `${issueLabel(r.issue)} agent ${r.outcome.kind} ($${r.costUsd.toFixed(2)})`;
+    const tag = `${issueLabel(r.issue)} agent ${r.outcome.kind} (${formatCostUsd(r.costUsd, r.tokens)})`;
     switch (r.outcome.kind) {
       case 'success':
         this.#stopActive('succeed', tag);
@@ -98,7 +99,7 @@ export class ConsoleReporter {
   }
 
   costLimitHit(stats: RunStats): void {
-    this.#stopActive('warn', `cost limit hit at $${stats.totalCostUsd.toFixed(2)} — stopping before next issue`);
+    this.#stopActive('warn', `cost limit hit at ${formatTotalCostUsd(stats)} — stopping before next issue`);
   }
 
   end(stats: RunStats): void {
@@ -110,7 +111,7 @@ export class ConsoleReporter {
         ` rejected=${stats.rejected}` +
         ` skipped=${stats.skipped}` +
         ` errors=${stats.errors}` +
-        ` total=$${stats.totalCostUsd.toFixed(2)}`,
+        ` total=${formatTotalCostUsd(stats)}`,
     );
   }
 
