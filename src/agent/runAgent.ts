@@ -203,7 +203,7 @@ export async function runAgent(
   }
 
   const parsed = parseResult({ output: snap.output, diff: snap.diff });
-  await clearState(statePath, issue);
+  await enqueueWrite(() => clearState(statePath, issue));
 
   if (parsed.kind === 'skip') {
     return finish(
