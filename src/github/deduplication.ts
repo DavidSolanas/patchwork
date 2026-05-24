@@ -12,8 +12,8 @@ export interface DedupResult {
  *
  * The Phase 6 orchestrator constructs one `Map` per `patchwork run` invocation
  * and threads it through all three dedup checkpoints (pre-triage, pre-agent,
- * pre-PR — see invariant #7) so the same issue is not searched repeatedly
- * within one run. Tests pass a fresh `Map` per call.
+ * pre-PR — see invariant #7). Only confirmed PR hits are memoised so negative
+ * lookups stay fresh through the final guard. Tests pass a fresh `Map` per call.
  */
 export type DedupCache = Map<string, DedupResult>;
 
@@ -33,9 +33,13 @@ export function dedupKey(issue: IssueRef): string {
  *  2. Pre-agent — immediately before dispatching the Cursor agent.
  *  3. Pre-PR — final guard inside `createPR.ts` before `pulls.create`.
  *
- * If `cache` is supplied, results are memoised by `owner/name#N` for the
- * lifetime of the run. Network errors from Search are surfaced (not swallowed)
- * so the orchestrator can decide whether to skip-on-error.
+ * If `cache` is supplied, **positive** hits (`exists: true`) are memoised by
+ * `owner/name#N` for the lifetime of the run. Negative results are never
+ * cached — a PR may appear between the pre-triage and pre-PR checkpoints
+ * (invariant #7; see PLAN.md createPR risk table).
+ *
+ * Network errors from Search are surfaced (not swallowed) so the orchestrator
+ * can decide whether to skip-on-error.
  */
 export async function findExistingPR(
   octokit: Octokit,
@@ -46,7 +50,7 @@ export async function findExistingPR(
 
   if (cache) {
     const cached = cache.get(key);
-    if (cached) return cached;
+    if (cached?.exists) return cached;
   }
 
   const q = `repo:${issue.repo.owner}/${issue.repo.name} is:pr is:open #${issue.number} in:body`;
@@ -64,6 +68,8 @@ export async function findExistingPR(
       ? { exists: true, url: top.html_url }
       : { exists: false };
 
-  cache?.set(key, result);
+  if (cache && result.exists) {
+    cache.set(key, result);
+  }
   return result;
 }
