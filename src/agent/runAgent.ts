@@ -6,7 +6,7 @@ import type { Octokit } from '../github/octokit.js';
 import { priceFor } from '../reporter/costs.js';
 import type { AgentRunResult, IssueRef, TokenUsage } from '../types.js';
 import { atomicWriteFile } from '../util/atomicWrite.js';
-import { buildPrompt } from './buildPrompt.js';
+import { buildPrompt, loadSkillContent } from './buildPrompt.js';
 import type { CursorClient, CursorEvent, RunSnapshot } from './cursorClient.js';
 import { detectTestCommands } from './detectTests.js';
 import { parseResult } from './parseResult.js';
@@ -94,7 +94,8 @@ export async function runAgent(
       : 'No test commands detected.';
 
   // 6. Prompt.
-  const prompt = buildPrompt(issue, { repoUrl, testHints });
+  const skillContent = await loadSkillContent();
+  const prompt = buildPrompt(issue, { repoUrl, testHints, skillContent });
 
   // 7. Dispatch.
   const start = await deps.cursor.startRun({
