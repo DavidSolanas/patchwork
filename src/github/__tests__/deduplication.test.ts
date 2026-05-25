@@ -73,7 +73,33 @@ describe('findExistingPR', () => {
     expect(capturedQuery).toBe('repo:o/r is:pr is:open #123 in:body');
   });
 
-  it('memoises results in the supplied cache (one network call across many lookups)', async () => {
+  it('re-queries after a negative result so a later PR is detected', async () => {
+    nock('https://api.github.com')
+      .get('/search/issues')
+      .query(true)
+      .reply(200, { total_count: 0, incomplete_results: false, items: [] });
+    nock('https://api.github.com')
+      .get('/search/issues')
+      .query(true)
+      .reply(200, {
+        total_count: 1,
+        incomplete_results: false,
+        items: [{ html_url: 'https://github.com/o/r/pull/42', number: 42 }],
+      });
+
+    const octokit = makeTestOctokit();
+    const cache = createDedupCache();
+    const issue = makeIssue();
+
+    const first = await findExistingPR(octokit, issue, cache);
+    const second = await findExistingPR(octokit, issue, cache);
+
+    expect(first).toEqual({ exists: false });
+    expect(second).toEqual({ exists: true, url: 'https://github.com/o/r/pull/42' });
+    expect(nock.pendingMocks()).toEqual([]);
+  });
+
+  it('memoises positive hits in the supplied cache (one network call across many lookups)', async () => {
     nock('https://api.github.com')
       .get('/search/issues')
       .query(true)
