@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Patchwork invariant audit — mirrors the inline grep checks in .github/workflows/ci.yml
-# (CI must not execute this file from a PR checkout). Documented in CLAUDE.md
+# Patchwork invariant audit — mirrors the inline grep checks in
+# .github/workflows/invariant-audit.yml (pull_request_target; never run PR scripts
+# there). Documented in CLAUDE.md
 # § "CI audit checks (load-bearing)". Runs after every Edit/Write/MultiEdit so
 # violations are caught at edit time, not only in CI.
 #

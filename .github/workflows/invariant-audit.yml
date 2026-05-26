@@ -1,0 +1,60 @@
+# Trusted invariant gate — workflow definition always comes from the base branch
+# (pull_request_target), not from the PR. Only static grep; never npm or PR scripts.
+# Keep grep logic in sync with .claude/hooks/invariant-audit.sh
+name: Invariant Audit
+
+on:
+  pull_request_target:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  invariant-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request_target'
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push'
+        with:
+          persist-credentials: false
+
+      - name: Invariant audits
+        run: |
+          set -uo pipefail
+          violations=0
+          check() {
+            local label="$1"
+            local hits="$2"
+            if [ -n "$hits" ]; then
+              echo "❌ $label" >&2
+              echo "$hits" | sed 's/^/   /' >&2
+              violations=$((violations + 1))
+            fi
+          }
+          hits=$(grep -rEn 'octokit\.pulls\.create' src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/createPR\.ts:' || true)
+          check "INVARIANT #1: octokit.pulls.create found outside src/github/createPR.ts" "$hits"
+          hits=$(grep -rEn 'autoCreatePR[[:space:]]*:[[:space:]]*true' src --include='*.ts' 2>/dev/null || true)
+          check "INVARIANT #2: autoCreatePR: true is forbidden (must be the literal false)" "$hits"
+          hits=$(grep -rEn "from[[:space:]]+['\"]@octokit/rest['\"]" src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/' || true)
+          check "INVARIANT #3: @octokit/rest imported outside src/github/**" "$hits"
+          if [ "$violations" -gt 0 ]; then
+            echo "" >&2
+            echo "Patchwork invariant violations: $violations." >&2
+            echo "See CLAUDE.md § 'Non-negotiable invariants'." >&2
+            exit 1
+          fi

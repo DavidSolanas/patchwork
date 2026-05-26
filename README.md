@@ -354,7 +354,7 @@ The v0.1 architecture is built so none of these require core rewrites. `ReviewSu
 
 Patchwork is itself a small open-source project. Contributions are welcome — and yes, you can use patchwork to contribute to patchwork, provided every PR still goes through the human review gate. Treat the disclosure block as mandatory; do not add flags to suppress it.
 
-Run the test suite locally with `npm test`. CI runs test, lint, typecheck, and invariant greps on every push and pull request (see `.github/workflows/ci.yml` and `.claude/hooks/invariant-audit.sh`).
+Run the test suite locally with `npm test`. **CI** (`.github/workflows/ci.yml`) runs test, lint, and typecheck on pull requests. **Invariant Audit** (`.github/workflows/invariant-audit.yml`) runs load-bearing safety greps from trusted base-branch workflow logic via `pull_request_target` — add that check as a required status check in branch protection. Local edits use `.claude/hooks/invariant-audit.sh` (keep in sync with the workflow).
 
 ---
 
