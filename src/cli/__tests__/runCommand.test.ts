@@ -14,8 +14,11 @@ import type {
   ReviewSurface,
   TriageScore,
 } from '../../types.js';
+import * as createPRModule from '../../github/createPR.js';
+import * as runAgentModule from '../../agent/runAgent.js';
 import { buildReviewPayload, executeRun } from '../runCommand.js';
 import type { PatchworkConfig } from '../../config/schema.js';
+import type { SuccessfulAgentRunResult } from '../../types.js';
 
 function makeIssue(overrides: Partial<IssueRef> = {}): IssueRef {
   return {
@@ -298,6 +301,59 @@ describe('executeRun (orchestrator)', () => {
       );
       const body = await readFile(summaryPath, 'utf8');
       expect(body).toContain('# Patchwork run summary');
+    });
+  });
+
+  it('passes testedLocally from approve decision to createPR', async () => {
+    const issue = makeIssue();
+    const agentResult: SuccessfulAgentRunResult = {
+      issue,
+      outcome: {
+        kind: 'success',
+        branch: 'patchwork/issue-42-fix-it',
+        diff: 'diff --git a/x.ts b/x.ts\nindex 1..2 100644\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-old\n+new\n',
+        commitSha: 'abc',
+        agentSummary: 'fixed',
+      },
+      model: 'composer-2',
+      tokens: { input: 10, output: 5, cacheRead: 0 },
+      costUsd: 0.01,
+      startedAt: '2026-05-01T00:00:00Z',
+      endedAt: '2026-05-01T00:01:00Z',
+      cursorRunId: 'run_abc',
+      boundRepo: { owner: 'octo', name: 'demo' },
+      testingNotes: 'npm test',
+    };
+    vi.spyOn(runAgentModule, 'runAgent').mockResolvedValue(agentResult);
+    const createPRSpy = vi
+      .spyOn(createPRModule, 'createPR')
+      .mockResolvedValue({ url: 'https://github.com/octo/demo/pull/5', number: 5 });
+
+    const octo = makeOctokit([issue]);
+    const anthropic = makeAnthropicReturning({
+      score: 9,
+      breakdown: { clarity: 3, scope: 3, context: 2, viability: 1 },
+      reason: 'clear fix',
+      recommendation: 'fix',
+    });
+    const cursor = spyCursor();
+    const surface: ReviewSurface = {
+      interactive: false,
+      present: vi.fn(async () => ({ action: 'approve', testedLocally: true })),
+    };
+    const queue = new DeferredQueue('/tmp/patchwork-test-deferred-' + Date.now() + '.json');
+    const reporter = silentReporter();
+
+    await withTmpSummary(async (summaryPath) => {
+      const stats = await executeRun(
+        makeConfig(),
+        { octokit: octo, anthropic, cursor, reporter, surface, queue, summaryPath },
+        { dryRun: false },
+      );
+      expect(stats.prsCreated).toBe(1);
+      expect(createPRSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ testedLocally: true, result: agentResult }),
+      );
     });
   });
 

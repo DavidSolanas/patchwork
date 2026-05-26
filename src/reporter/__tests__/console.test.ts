@@ -93,7 +93,7 @@ describe('ConsoleReporter (non-TTY)', () => {
     r.issueScored(issue, score);
     r.issueAttempting(issue);
     r.agentResult(result('success'));
-    r.reviewDecision(issue, { action: 'approve' });
+    r.reviewDecision(issue, { action: 'approve', testedLocally: false });
     r.prCreated(issue, 'https://github.com/octo/demo/pull/123');
     r.costLimitHit(stats);
     r.end(stats);
@@ -109,7 +109,7 @@ describe('ConsoleReporter (non-TTY)', () => {
   it('handles every ReviewDecision action without falling through', () => {
     const stream = new CaptureStream() as unknown as NodeJS.WriteStream;
     const r = new ConsoleReporter(stream);
-    r.reviewDecision(issue, { action: 'approve' });
+    r.reviewDecision(issue, { action: 'approve', testedLocally: false });
     r.reviewDecision(issue, { action: 'reject', reason: 'wrong fix' });
     r.reviewDecision(issue, { action: 'skip', reason: 'later' });
     r.reviewDecision(issue, { action: 'open_external' });

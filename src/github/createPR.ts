@@ -8,6 +8,7 @@ export interface CreatePRInput {
   octokit: Octokit;
   result: SuccessfulAgentRunResult;
   upstream: { owner: string; name: string };
+  testedLocally: boolean;
   /** Shared per-run dedup cache. Threads through invariant #7's three checkpoints. */
   dedupCache?: DedupCache;
   /** Optional logger — defaults to `console.warn` for the dedup-collision path. */
@@ -69,6 +70,7 @@ export async function createPR(input: CreatePRInput): Promise<CreatePRResult> {
       model: result.model,
       agentSummary: result.outcome.agentSummary,
       testingNotes: result.testingNotes,
+      testedLocally: input.testedLocally,
     }),
     head,
     base: baseBranch,

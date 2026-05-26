@@ -46,14 +46,28 @@ describe('renderPRBody', () => {
     model: 'composer-2',
     agentSummary: 'Replaced unwrap() with a graceful error path.',
     testingNotes: 'npm test',
+    testedLocally: false,
   };
 
   it('contains the mandatory AI disclosure substring (invariant #4)', () => {
     const body = renderPRBody(baseInput);
     expect(body).toContain('AI Disclosure');
     expect(body).toContain('developed with AI assistance using the Cursor SDK');
-    expect(body).toContain('reviewed and approved');
-    expect(body).toContain('by the author before submission.');
+    expect(body).toContain('by the author before submission');
+  });
+
+  it('discloses local testing when testedLocally is true', () => {
+    const body = renderPRBody({ ...baseInput, testedLocally: true });
+    expect(body).toContain(
+      'reviewed, tested locally, and approved by the author before submission.',
+    );
+  });
+
+  it('discloses no local run when testedLocally is false', () => {
+    const body = renderPRBody(baseInput);
+    expect(body).toContain(
+      'reviewed and approved by the author before submission (changes were not run locally).',
+    );
   });
 
   it('embeds the model name and the issue number in the disclosure', () => {

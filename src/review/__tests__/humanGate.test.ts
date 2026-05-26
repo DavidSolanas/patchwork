@@ -107,7 +107,7 @@ describe('TerminalReviewSurface — present()', () => {
     const p = h.surface.present(makePayload());
     await tick();
     h.stdin.write('a');
-    expect(await p).toEqual({ action: 'approve' });
+    expect(await p).toEqual({ action: 'approve', testedLocally: false });
   });
 
   it('case-insensitive key handling', async () => {
@@ -115,7 +115,7 @@ describe('TerminalReviewSurface — present()', () => {
     const p = h.surface.present(makePayload());
     await tick();
     h.stdin.write('A');
-    expect(await p).toEqual({ action: 'approve' });
+    expect(await p).toEqual({ action: 'approve', testedLocally: false });
   });
 
   it('returns skip on S', async () => {
@@ -153,7 +153,7 @@ describe('TerminalReviewSurface — present()', () => {
     h.stdin.write('o');
     await tick();
     h.stdin.write('a');
-    expect(await p).toEqual({ action: 'approve' });
+    expect(await p).toEqual({ action: 'approve', testedLocally: false });
     expect(h.openExternal).toHaveBeenCalledTimes(1);
     expect(h.openExternal).toHaveBeenCalledWith(
       'https://github.com/me/r/tree/patchwork/issue-7-thing-broken',
@@ -167,8 +167,33 @@ describe('TerminalReviewSurface — present()', () => {
     h.stdin.write('z');
     await tick();
     h.stdin.write('a');
-    expect(await p).toEqual({ action: 'approve' });
+    expect(await p).toEqual({ action: 'approve', testedLocally: false });
     expect(h.output()).toMatch(/Invalid choice/);
+  });
+
+  it('prints checkout commands on T then sets testedLocally on approve', async () => {
+    const h = makeHarness();
+    const p = h.surface.present(makePayload());
+    await tick();
+    h.stdin.write('t');
+    await tick();
+    h.stdin.write('\n');
+    await tick();
+    h.stdin.write('a');
+    const decision = await p;
+    expect(decision).toEqual({ action: 'approve', testedLocally: true });
+    const out = h.output();
+    expect(out).toContain('git fetch https://github.com/me/r patchwork/issue-7-thing-broken');
+    expect(out).toContain('git checkout FETCH_HEAD');
+    expect(out).toContain('git checkout -');
+  });
+
+  it('approve without T leaves testedLocally false', async () => {
+    const h = makeHarness();
+    const p = h.surface.present(makePayload());
+    await tick();
+    h.stdin.write('a');
+    expect(await p).toEqual({ action: 'approve', testedLocally: false });
   });
 
   it('renders the large-diff banner when payload.largeDiffWarning is true', async () => {

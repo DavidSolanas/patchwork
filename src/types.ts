@@ -68,7 +68,7 @@ export interface ReviewPayload {
 }
 
 export type ReviewDecision =
-  | { action: 'approve' }
+  | { action: 'approve'; testedLocally: boolean }
   | { action: 'reject'; reason?: string }
   | { action: 'skip'; reason?: string }
   | { action: 'open_external' };

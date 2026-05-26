@@ -66,6 +66,7 @@ export async function executeReview(deps: ReviewCommandDeps): Promise<void> {
           octokit,
           result: payload.result,
           upstream: payload.issue.repo,
+          testedLocally: decision.testedLocally,
           dedupCache,
         });
         reporter.prCreated(payload.issue, pr.url);
