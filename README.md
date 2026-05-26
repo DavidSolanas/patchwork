@@ -256,8 +256,11 @@ Fixes #<N>
 ## AI Disclosure
 
 This contribution was developed with AI assistance using the Cursor SDK
-(<model> model). All code changes were reviewed, tested, and approved
-by the author before submission.
+(<model> model). All code changes were reviewed and approved by the author
+before submission (changes were not run locally).
+
+If you used `[T]est locally` during review, the disclosure instead states that
+changes were reviewed, tested locally, and approved before submission.
 
 ---
 *Submitted via patchwork.*

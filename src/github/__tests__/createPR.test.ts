@@ -93,6 +93,7 @@ describe('createPR', () => {
       octokit: makeTestOctokit(),
       result,
       upstream: { owner: 'upstream', name: 'repo' },
+      testedLocally: false,
     });
 
     expect(out).toEqual({ url: 'https://github.com/upstream/repo/pull/77', number: 77 });
@@ -119,12 +120,36 @@ describe('createPR', () => {
       octokit: makeTestOctokit(),
       result: makeResult({ boundRepo: { owner: 'upstream', name: 'repo' } }),
       upstream: { owner: 'upstream', name: 'repo' },
+      testedLocally: false,
     });
 
     expect(captured.body).toContain('AI Disclosure');
     expect(captured.body).toContain('developed with AI assistance using the Cursor SDK');
     expect(captured.body).toContain('(composer-2 model)');
     expect(captured.body).toContain('Fixes #42');
+  });
+
+  it('records local testing in the disclosure when testedLocally is true', async () => {
+    mockNoExistingPR();
+    mockUserIs('upstream');
+    mockDefaultBranch('upstream', 'repo', 'main');
+
+    let captured: { body: string };
+    nock('https://api.github.com')
+      .post('/repos/upstream/repo/pulls', body => {
+        captured = body;
+        return true;
+      })
+      .reply(201, { html_url: 'https://github.com/upstream/repo/pull/3', number: 3 });
+
+    await createPR({
+      octokit: makeTestOctokit(),
+      result: makeResult({ boundRepo: { owner: 'upstream', name: 'repo' } }),
+      upstream: { owner: 'upstream', name: 'repo' },
+      testedLocally: true,
+    });
+
+    expect(captured!.body).toContain('reviewed, tested locally, and approved');
   });
 
   it('honours non-`main` default branches', async () => {
@@ -144,6 +169,7 @@ describe('createPR', () => {
       octokit: makeTestOctokit(),
       result: makeResult({ boundRepo: { owner: 'upstream', name: 'repo' } }),
       upstream: { owner: 'upstream', name: 'repo' },
+      testedLocally: false,
     });
     expect(captured.base).toBe('develop');
   });
@@ -163,6 +189,7 @@ describe('createPR', () => {
       octokit: makeTestOctokit(),
       result: makeResult(),
       upstream: { owner: 'upstream', name: 'repo' },
+      testedLocally: false,
       warn: msg => warnings.push(msg),
     });
 

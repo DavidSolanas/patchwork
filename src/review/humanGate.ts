@@ -54,9 +54,11 @@ export class TerminalReviewSurface implements ReviewSurface {
     this.io.stdout.write(renderDiff(payload.result.outcome.diff) + '\n');
     this.printCostLine(payload);
 
+    let testedLocally = false;
+
     while (true) {
       this.io.stdout.write(
-        '\n[A]pprove / [R]eject / [S]kip for later / [O]pen in browser > ',
+        '\n[A]pprove / [R]eject / [S]kip for later / [O]pen in browser / [T]est locally > ',
       );
       const key = await this.readKey();
       const lower = key.toLowerCase();
@@ -67,7 +69,14 @@ export class TerminalReviewSurface implements ReviewSurface {
       }
       if (lower === 'a') {
         this.io.stdout.write('approve\n');
-        return { action: 'approve' };
+        return { action: 'approve', testedLocally };
+      }
+      if (lower === 't') {
+        this.io.stdout.write('test locally\n');
+        this.printCheckoutCommands(payload);
+        await this.readLine('\nPress Enter when ready to continue... ');
+        testedLocally = true;
+        continue;
       }
       if (lower === 'r') {
         this.io.stdout.write('reject\n');
@@ -92,8 +101,18 @@ export class TerminalReviewSurface implements ReviewSurface {
         }
         continue;
       }
-      this.io.stdout.write(chalk.yellow('Invalid choice. Press A, R, S, or O.\n'));
+      this.io.stdout.write(chalk.yellow('Invalid choice. Press A, R, S, O, or T.\n'));
     }
+  }
+
+  private printCheckoutCommands(payload: ReviewPayload): void {
+    const { boundRepo, outcome } = payload.result;
+    const repoUrl = `https://github.com/${boundRepo.owner}/${boundRepo.name}`;
+    this.io.stdout.write('\n');
+    this.io.stdout.write(chalk.bold('Test this branch locally:\n'));
+    this.io.stdout.write(`  git fetch ${repoUrl} ${outcome.branch}\n`);
+    this.io.stdout.write('  git checkout FETCH_HEAD\n');
+    this.io.stdout.write(chalk.dim('\nTo return to your previous branch: git checkout -\n'));
   }
 
   private printHeader(payload: ReviewPayload): void {

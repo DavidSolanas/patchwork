@@ -201,6 +201,7 @@ export async function executeRun(
             octokit,
             result: successResult,
             upstream: issue.repo,
+            testedLocally: decision.testedLocally,
             dedupCache,
           });
           state.notePRCreated();

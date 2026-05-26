@@ -8,6 +8,7 @@ export interface PRTemplateInput {
   model: string;
   agentSummary: string;
   testingNotes: string;
+  testedLocally: boolean;
 }
 
 /**
@@ -40,6 +41,9 @@ export function renderPRTitle(issue: IssueRef): string {
 export function renderPRBody(input: PRTemplateInput): string {
   const summary = formatAgentSummary(input.agentSummary);
   const notes = input.testingNotes.trim() || 'No automated tests were detected or run.';
+  const disclosureOutcome = input.testedLocally
+    ? 'reviewed, tested locally, and approved by the author before submission.'
+    : 'reviewed and approved by the author before submission (changes were not run locally).';
 
   return [
     `Fixes #${input.issue.number}`, // Moved to the top for instant visibility
@@ -62,8 +66,7 @@ export function renderPRBody(input: PRTemplateInput): string {
     '## AI Disclosure',
     '',
     'This contribution was developed with AI assistance using the Cursor SDK',
-    `(${input.model} model). All code changes were reviewed and approved`,
-    'by the author before submission.',
+    `(${input.model} model). All code changes were ${disclosureOutcome}`,
     '',
     '---',
     '*Submitted via patchwork.*', // Italicized for a cleaner footer look
