@@ -176,6 +176,18 @@ function objectStringProperty(objectLiteral, propertyName, sourceFile, stringCon
   return undefined;
 }
 
+function objectPropertyElementName(property, sourceFile, stringConstants) {
+  if (ts.isShorthandPropertyAssignment(property)) {
+    return property.name.text;
+  }
+
+  if (ts.isPropertyAssignment(property)) {
+    return propertyNameText(property.name, sourceFile, stringConstants);
+  }
+
+  return undefined;
+}
+
 function isCreatePullRequestRoute(route) {
   if (!route) {
     return false;
@@ -599,6 +611,33 @@ function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
   }
 
   function auditAutoCreatePrValue(node) {
+    function isRunStateInFlightCheckpointWrite(binaryExpression) {
+      if (repoPath !== 'src/agent/runAgent.ts' || !ts.isElementAccessExpression(binaryExpression.left)) {
+        return false;
+      }
+
+      const target = binaryExpression.left.expression;
+      if (
+        !ts.isPropertyAccessExpression(target) ||
+        target.name.text !== 'inFlight' ||
+        !ts.isIdentifier(target.expression) ||
+        target.expression.text !== 'existing' ||
+        !ts.isObjectLiteralExpression(binaryExpression.right)
+      ) {
+        return false;
+      }
+
+      const expectedProperties = new Set(['runId', 'lastCursor', 'startedAt', 'model', 'boundRepo']);
+      for (const property of binaryExpression.right.properties) {
+        const name = objectPropertyElementName(property, sourceFile, stringConstants);
+        if (!name || !expectedProperties.delete(name)) {
+          return false;
+        }
+      }
+
+      return expectedProperties.size === 0;
+    }
+
     if (
       ts.isPropertyAssignment(node) &&
       propertyNameText(node.name, sourceFile, stringConstants) === 'autoCreatePR' &&
@@ -634,7 +673,8 @@ function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
       node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       ts.isElementAccessExpression(node.left) &&
       accessName(node.left, sourceFile, stringConstants) === undefined &&
-      isTrueLiteral(node.right)
+      !isFalseLiteral(node.right) &&
+      !isRunStateInFlightCheckpointWrite(node)
     ) {
       report(repoPath, sourceFile, node, 'INVARIANT #2: computed autoCreatePR assignment keys must resolve statically');
     }
