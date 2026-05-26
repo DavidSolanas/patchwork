@@ -71,7 +71,7 @@ export function makeCursorClient(apiKey: string): CursorClient {
         model: { id: input.model },
         cloud: {
           repos: [{ url: input.repoUrl, startingRef: input.startingRef }],
-          autoCreatePR: input.autoCreatePR,
+          autoCreatePR: false,
         },
       });
 

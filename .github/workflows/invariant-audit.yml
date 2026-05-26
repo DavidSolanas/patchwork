@@ -1,0 +1,97 @@
+# Trusted invariant gate — workflow definition and grep logic always come from the
+# base branch (pull_request_target), not from the PR. PR code is checked out as data
+# only; never run PR-controlled scripts or npm lifecycle hooks here.
+name: Invariant Audit
+
+on:
+  pull_request_target:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  invariant-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code as candidate data
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Checkout pushed code
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Keep grep logic in sync with .claude/hooks/invariant-audit.sh
+      - name: Invariant audits for PR
+        if: github.event_name == 'pull_request_target'
+        run: |
+          set -uo pipefail
+          SRC=candidate/src
+          violations=0
+          check() {
+            local label="$1"
+            local hits="$2"
+            if [ -n "$hits" ]; then
+              echo "❌ $label" >&2
+              echo "$hits" | sed 's/^/   /' >&2
+              violations=$((violations + 1))
+            fi
+          }
+          hits=$(grep -rEn 'octokit\.pulls\.create' "$SRC" --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^candidate/src/github/createPR\.ts:' || true)
+          check "INVARIANT #1: octokit.pulls.create found outside src/github/createPR.ts" "$hits"
+          hits=$(grep -rEn 'autoCreatePR[[:space:]]*:[[:space:]]*true' "$SRC" --include='*.ts' 2>/dev/null || true)
+          check "INVARIANT #2: autoCreatePR: true is forbidden (must be the literal false)" "$hits"
+          hits=$(grep -rEn "from[[:space:]]+['\"]@octokit/rest['\"]" "$SRC" --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^candidate/src/github/' || true)
+          check "INVARIANT #3: @octokit/rest imported outside src/github/**" "$hits"
+          if [ "$violations" -gt 0 ]; then
+            echo "" >&2
+            echo "Patchwork invariant violations: $violations." >&2
+            exit 1
+          fi
+
+      - name: Invariant audits for push
+        if: github.event_name == 'push'
+        run: |
+          set -uo pipefail
+          violations=0
+          check() {
+            local label="$1"
+            local hits="$2"
+            if [ -n "$hits" ]; then
+              echo "❌ $label" >&2
+              echo "$hits" | sed 's/^/   /' >&2
+              violations=$((violations + 1))
+            fi
+          }
+          hits=$(grep -rEn 'octokit\.pulls\.create' src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/createPR\.ts:' || true)
+          check "INVARIANT #1: octokit.pulls.create found outside src/github/createPR.ts" "$hits"
+          hits=$(grep -rEn 'autoCreatePR[[:space:]]*:[[:space:]]*true' src --include='*.ts' 2>/dev/null || true)
+          check "INVARIANT #2: autoCreatePR: true is forbidden (must be the literal false)" "$hits"
+          hits=$(grep -rEn "from[[:space:]]+['\"]@octokit/rest['\"]" src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/' || true)
+          check "INVARIANT #3: @octokit/rest imported outside src/github/**" "$hits"
+          if [ "$violations" -gt 0 ]; then
+            echo "" >&2
+            echo "Patchwork invariant violations: $violations." >&2
+            exit 1
+          fi

@@ -354,7 +354,7 @@ The v0.1 architecture is built so none of these require core rewrites. `ReviewSu
 
 Patchwork is itself a small open-source project. Contributions are welcome — and yes, you can use patchwork to contribute to patchwork, provided every PR still goes through the human review gate. Treat the disclosure block as mandatory; do not add flags to suppress it.
 
-Run the test suite with `npm test`. The CI audit step also runs a grep-based check that no code outside `src/github/createPR.ts` calls `octokit.pulls.create`, and that `autoCreatePR: true` does not appear anywhere. Both are load-bearing safety invariants.
+Run the test suite locally with `npm test`. **CI** (`.github/workflows/ci.yml`) runs test, lint, and typecheck on pull requests. **Invariant Audit** (`.github/workflows/invariant-audit.yml`) runs the same three invariant greps as `.claude/hooks/invariant-audit.sh` from trusted base-branch workflow logic via `pull_request_target` (optional required check for this repo; patchwork users always review agent output before any PR is created). Keep the hook and workflow greps in sync.
 
 ---
 

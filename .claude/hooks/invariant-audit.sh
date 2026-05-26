@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Patchwork invariant audit — mirrors the CI grep checks documented in CLAUDE.md
-# § "CI audit checks (load-bearing)". Runs after every Edit/Write/MultiEdit so
-# violations are caught at edit time, not in CI.
+# Patchwork invariant audit — mirrors the grep steps in
+# .github/workflows/invariant-audit.yml (trusted pull_request_target).
+# Documented in CLAUDE.md § "CI audit checks (load-bearing)".
+# Runs after every Edit/Write/MultiEdit so violations are caught at edit time.
 #
 # Test files are excluded (they may legitimately mock octokit.pulls.create or
-# import @octokit/rest), matching the exception in .eslintrc.cjs.
+# import @octokit/rest), matching the exception in eslint.config.js.
 #
 # Exit 2 = block (Claude sees stderr and must fix before continuing).
 

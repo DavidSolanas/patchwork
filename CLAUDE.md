@@ -58,7 +58,7 @@ Cursor cloud agents are **permanently bound to a repo at creation**. Patchwork t
 
 ## CI audit checks (load-bearing)
 
-Beyond the unit tests, CI greps the source for forbidden patterns. Keep these green:
+Beyond the unit tests, CI greps the source for forbidden patterns (`.github/workflows/invariant-audit.yml` on `pull_request_target`, greps inlined from the base branch). Keep these green:
 
 - `octokit.pulls.create` outside `src/github/createPR.ts`
 - `autoCreatePR: true` anywhere
