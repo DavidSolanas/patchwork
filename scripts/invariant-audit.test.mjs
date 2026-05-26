@@ -356,7 +356,7 @@ describe('invariant-audit', () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.output).toContain('autoCreatePR assignments must be the literal false');
+    expect(result.output).toContain('computed autoCreatePR assignment keys must resolve statically');
   });
 
   it('rejects unresolved computed autoCreatePR keys with non-false values', () => {
@@ -412,7 +412,7 @@ describe('invariant-audit', () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.output).toContain('computed autoCreatePR assignment keys must resolve statically');
+    expect(result.output).toContain('autoCreatePR assignments must be the literal false');
   });
 
   it('allows unresolved computed autoCreatePR assignments to literal false', () => {
