@@ -1,5 +1,5 @@
-# CI for v0.1.0 — test/lint/typecheck on PR code. Invariant greps run in
-# invariant-audit.yml (pull_request_target) so PRs cannot weaken that gate.
+# CI for v0.1.0 — test/lint/typecheck on PR code. Trusted invariant checks run
+# in invariant-audit.yml (pull_request_target) so PRs cannot weaken that gate.
 name: CI
 
 on:

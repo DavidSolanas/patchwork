@@ -23,8 +23,8 @@ export interface CreatePRResult {
  * Create the GitHub pull request for an approved agent run.
  *
  * **This is the single allowed caller of `octokit.pulls.create`.** Invariant
- * #1 is enforced by ESLint `no-restricted-imports` plus a CI grep audit; do
- * not add a second caller.
+ * #1 is enforced by ESLint `no-restricted-imports` plus the trusted invariant
+ * audit; do not add a second caller.
  *
  * Flow (PLAN.md §758):
  *  1. Final dedup re-check (invariant #7, third checkpoint). If a PR now

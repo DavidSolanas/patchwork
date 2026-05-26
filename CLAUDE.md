@@ -37,7 +37,7 @@ A CLI that fetches GitHub issues, triages them with Claude Haiku, dispatches Cur
 
 These are safety-critical. Violating any of them is a bug, regardless of how convenient the shortcut looks:
 
-1. **Single PR-creation entrypoint.** Only `src/github/createPR.ts` may call `octokit.pulls.create`. Enforce with ESLint `no-restricted-imports` on `@octokit/rest` outside `src/github/**`, plus a CI grep audit. Do not add a second caller "just for this case."
+1. **Single PR-creation entrypoint.** Only `src/github/createPR.ts` may create pull requests. Enforce with ESLint `no-restricted-imports` on `@octokit/rest` outside `src/github/**`, plus the trusted CI invariant audit. Do not add a second caller "just for this case."
 2. **`autoCreatePR: false` is type-locked.** `CursorClient.startRun` accepts the literal type `false`, not `boolean`. `autoCreatePR: true` must be a compile error everywhere.
 3. **Human review gate is mandatory.** No PR is created without an explicit `ReviewDecision` of `approve`. There is no "auto" mode — not for trusted repos, not in CI, not behind a flag. Non-TTY full runs must refuse to start (preflight) or fall back to dry-run.
 4. **AI disclosure is mandatory.** Every PR body contains the standardised disclosure block from `src/github/prTemplate.ts`. There is no flag to suppress it. A unit test asserts the disclosure substring is present.
@@ -58,11 +58,11 @@ Cursor cloud agents are **permanently bound to a repo at creation**. Patchwork t
 
 ## CI audit checks (load-bearing)
 
-Beyond the unit tests, CI greps the source for forbidden patterns. Keep these green:
+Beyond the unit tests, CI runs `scripts/invariant-audit.mjs` from trusted base-branch workflow code against PR source. Keep these checks green:
 
-- `octokit.pulls.create` outside `src/github/createPR.ts`
-- `autoCreatePR: true` anywhere
-- `@octokit/rest` imports outside `src/github/**`
+- no pull request creation outside `src/github/createPR.ts`, including aliasing or direct REST route calls
+- `StartRunInput.autoCreatePR` remains the literal type `false`, and every `autoCreatePR` value is the literal `false`
+- no `@octokit/rest` imports outside `src/github/**`
 
 If a refactor would trip these, the refactor is wrong.
 
