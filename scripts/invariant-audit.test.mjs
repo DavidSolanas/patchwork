@@ -396,6 +396,43 @@ describe('invariant-audit', () => {
     expect(result.output).toContain('computed autoCreatePR assignment keys must resolve statically');
   });
 
+  it('rejects unresolved computed autoCreatePR assignments to non-false expressions', () => {
+    const result = runAudit(
+      makeCandidate({
+        'src/agent/cursorClient.ts': `
+          export interface StartRunInput {
+            repoUrl: string;
+            autoCreatePR: false;
+          }
+          const key = ['autoCreatePR'][0];
+          const cloud: any = {};
+          cloud[key] = Boolean(1);
+        `,
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('computed autoCreatePR assignment keys must resolve statically');
+  });
+
+  it('allows unresolved computed autoCreatePR assignments to literal false', () => {
+    const result = runAudit(
+      makeCandidate({
+        'src/agent/cursorClient.ts': `
+          export interface StartRunInput {
+            repoUrl: string;
+            autoCreatePR: false;
+          }
+          declare const key: string;
+          const cloud: any = {};
+          cloud[key] = false;
+        `,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
   it('rejects dynamic @octokit/rest imports outside src/github', () => {
     const result = runAudit(
       makeCandidate({

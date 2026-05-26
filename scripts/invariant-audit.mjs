@@ -622,7 +622,7 @@ function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
       ts.isBinaryExpression(node) &&
       ts.isElementAccessExpression(node.left) &&
       accessName(node.left, sourceFile, stringConstants) === undefined &&
-      isTrueLiteral(node.right)
+      !isFalseLiteral(node.right)
     ) {
       report(repoPath, sourceFile, node, 'INVARIANT #2: computed autoCreatePR assignment keys must resolve statically');
     }
