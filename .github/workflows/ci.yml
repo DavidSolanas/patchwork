@@ -30,5 +30,37 @@ jobs:
 
       - run: npm test
 
+      # Invariant greps run here (trusted workflow), not via .claude/hooks/invariant-audit.sh
+      # from the PR checkout — a malicious PR could edit that script to exit 0. Keep in sync
+      # with invariant-audit.sh.
       - name: Invariant audits
-        run: bash .claude/hooks/invariant-audit.sh
+        run: |
+          set -uo pipefail
+          violations=0
+          check() {
+            local label="$1"
+            local hits="$2"
+            if [ -n "$hits" ]; then
+              echo "❌ $label" >&2
+              echo "$hits" | sed 's/^/   /' >&2
+              violations=$((violations + 1))
+            fi
+          }
+          hits=$(grep -rEn 'octokit\.pulls\.create' src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/createPR\.ts:' || true)
+          check "INVARIANT #1: octokit.pulls.create found outside src/github/createPR.ts" "$hits"
+          hits=$(grep -rEn 'autoCreatePR[[:space:]]*:[[:space:]]*true' src --include='*.ts' 2>/dev/null || true)
+          check "INVARIANT #2: autoCreatePR: true is forbidden (must be the literal false)" "$hits"
+          hits=$(grep -rEn "from[[:space:]]+['\"]@octokit/rest['\"]" src --include='*.ts' 2>/dev/null \
+            | grep -v '/__tests__/' \
+            | grep -v '\.test\.ts:' \
+            | grep -v '^src/github/' || true)
+          check "INVARIANT #3: @octokit/rest imported outside src/github/**" "$hits"
+          if [ "$violations" -gt 0 ]; then
+            echo "" >&2
+            echo "Patchwork invariant violations: $violations." >&2
+            echo "See CLAUDE.md § 'Non-negotiable invariants'." >&2
+            exit 1
+          fi

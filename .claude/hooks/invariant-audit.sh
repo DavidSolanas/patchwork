@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Patchwork invariant audit — mirrors the CI grep checks documented in CLAUDE.md
+# Patchwork invariant audit — mirrors the inline grep checks in .github/workflows/ci.yml
+# (CI must not execute this file from a PR checkout). Documented in CLAUDE.md
 # § "CI audit checks (load-bearing)". Runs after every Edit/Write/MultiEdit so
-# violations are caught at edit time, not in CI.
+# violations are caught at edit time, not only in CI.
 #
 # Test files are excluded (they may legitimately mock octokit.pulls.create or
 # import @octokit/rest), matching the exception in .eslintrc.cjs.
