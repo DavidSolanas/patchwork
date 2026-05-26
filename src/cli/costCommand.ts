@@ -1,6 +1,6 @@
 import { loadConfig, type PatchworkConfig } from '../config/load.js';
 import { DEFAULT_CONFIG_PATH, DEFAULT_TRIAGE_MODEL } from '../config/defaults.js';
-import { priceFor } from '../reporter/costs.js';
+import { AGENT_COST_TELEMETRY_COST_COMMAND_NOTE, priceFor } from '../reporter/costs.js';
 import { preflight } from './preflight.js';
 
 export interface CostCommandOptions {
@@ -97,6 +97,7 @@ function printProjection(p: CostProjection, stdout: NodeJS.WriteStream): void {
       `⚠ projection exceeds cost_limit_usd — the run will abort partway through.\n`,
     );
   }
+  stdout.write(`\n${AGENT_COST_TELEMETRY_COST_COMMAND_NOTE}\n`);
 }
 
 function pad(s: string, width: number): string {

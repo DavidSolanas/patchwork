@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import type { PatchworkConfig } from '../config/schema.js';
 import type {
@@ -7,7 +8,12 @@ import type {
   RunStats,
   TriageScore,
 } from '../types.js';
-import { formatCostUsd, formatTotalCostUsd } from './costs.js';
+import {
+  AGENT_COST_TELEMETRY_SUMMARY_NOTE,
+  formatCostUsd,
+  formatTotalCostUsd,
+  hasUnknownAgentCostInRun,
+} from './costs.js';
 
 /**
  * Live progress reporter. One active `ora` spinner at a time; each lifecycle
@@ -113,6 +119,9 @@ export class ConsoleReporter {
         ` errors=${stats.errors}` +
         ` total=${formatTotalCostUsd(stats)}`,
     );
+    if (hasUnknownAgentCostInRun(stats)) {
+      this.#log(chalk.yellow(AGENT_COST_TELEMETRY_SUMMARY_NOTE));
+    }
   }
 
   #spawn(text: string): Ora | null {

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConsoleReporter } from '../../reporter/console.js';
 import { DeferredQueue } from '../../review/queue.js';
 import type { CursorClient } from '../../agent/cursorClient.js';
@@ -142,6 +142,63 @@ async function withTmpSummary<T>(fn: (path: string) => Promise<T>): Promise<T> {
 }
 
 describe('executeRun (orchestrator)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('prints agent cost telemetry warning on full runs', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const octo = makeOctokit([makeIssue()]);
+    const anthropic = makeAnthropicReturning({
+      score: 3,
+      breakdown: { clarity: 1, scope: 1, context: 0, viability: 1 },
+      reason: 'meh',
+      recommendation: 'skip',
+    });
+    const cursor = spyCursor();
+    const surface = neverSurface();
+    const queue = new DeferredQueue('/tmp/patchwork-test-deferred-' + Date.now() + '.json');
+    const reporter = silentReporter();
+
+    await withTmpSummary(async (summaryPath) => {
+      await executeRun(
+        makeConfig(),
+        { octokit: octo, anthropic, cursor, reporter, surface, queue, summaryPath },
+        { dryRun: false },
+      );
+    });
+
+    const written = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(written).toContain('Agent cost telemetry is unavailable');
+    expect(written).toContain('cost_limit_usd');
+  });
+
+  it('does not print agent cost telemetry warning on dry-run', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const octo = makeOctokit([makeIssue()]);
+    const anthropic = makeAnthropicReturning({
+      score: 9,
+      breakdown: { clarity: 3, scope: 3, context: 2, viability: 1 },
+      reason: 'looks good',
+      recommendation: 'fix',
+    });
+    const cursor = spyCursor();
+    const surface = neverSurface();
+    const queue = new DeferredQueue('/tmp/patchwork-test-deferred-' + Date.now() + '.json');
+    const reporter = silentReporter();
+
+    await withTmpSummary(async (summaryPath) => {
+      await executeRun(
+        makeConfig(),
+        { octokit: octo, anthropic, cursor, reporter, surface, queue, summaryPath },
+        { dryRun: true },
+      );
+    });
+
+    const written = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(written).not.toContain('Agent cost telemetry is unavailable');
+  });
+
   it('--dry-run never invokes cursor.startRun even when score passes threshold', async () => {
     const octo = makeOctokit([makeIssue()]);
     const anthropic = makeAnthropicReturning({

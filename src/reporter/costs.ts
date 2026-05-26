@@ -69,8 +69,25 @@ export function formatTotalCostUsd(stats: RunStats): string {
   if (stats.totalCostUsd > 0) {
     return `$${stats.totalCostUsd.toFixed(2)}`;
   }
-  if (stats.perIssue.some((r) => isCostUnknown(r.tokens, r.costUsd))) {
+  if (hasUnknownAgentCostInRun(stats)) {
     return COST_UNKNOWN_LABEL;
   }
   return `$${stats.totalCostUsd.toFixed(2)}`;
 }
+
+/** True when any dispatched issue lacks Cursor SDK token telemetry. */
+export function hasUnknownAgentCostInRun(stats: RunStats): boolean {
+  return stats.perIssue.some((r) => isCostUnknown(r.tokens, r.costUsd));
+}
+
+export const AGENT_COST_TELEMETRY_START_WARNING = [
+  '[patchwork] Agent cost telemetry is unavailable (Cursor SDK). cost_limit_usd',
+  'only counts triage (Haiku) spend until usage is reported. Per-issue agent',
+  'cost will show as "cost unknown". Use patchwork cost for a pre-run estimate.',
+].join('\n');
+
+export const AGENT_COST_TELEMETRY_SUMMARY_NOTE =
+  'Agent cost telemetry was unavailable; total USD reflects triage only.';
+
+export const AGENT_COST_TELEMETRY_COST_COMMAND_NOTE =
+  'Note: Actual agent spend may show as "cost unknown" until Cursor reports token usage.';

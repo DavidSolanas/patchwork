@@ -1,6 +1,11 @@
 import type { AgentRunResult, RunStats } from '../types.js';
 import { atomicWriteFile } from '../util/atomicWrite.js';
-import { formatCostUsd, formatTotalCostUsd } from './costs.js';
+import {
+  AGENT_COST_TELEMETRY_SUMMARY_NOTE,
+  formatCostUsd,
+  formatTotalCostUsd,
+  hasUnknownAgentCostInRun,
+} from './costs.js';
 
 /**
  * Write a human-readable run summary to `path` (default `.patchwork/SUMMARY.md`).
@@ -20,6 +25,9 @@ export function renderSummary(stats: RunStats): string {
   lines.push(`- **Started:** ${stats.startedAt}`);
   lines.push(`- **Ended:**   ${stats.endedAt ?? '(in progress)'}`);
   lines.push(`- **Total cost:** ${formatTotalCostUsd(stats)}${stats.costLimitHit ? ' _(cost limit hit)_' : ''}`);
+  if (hasUnknownAgentCostInRun(stats)) {
+    lines.push(`- _${AGENT_COST_TELEMETRY_SUMMARY_NOTE}_`);
+  }
   lines.push('');
   lines.push(`- Issues considered: ${stats.issuesConsidered}`);
   lines.push(`- Issues scored:     ${stats.issuesScored}`);
