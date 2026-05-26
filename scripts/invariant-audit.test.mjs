@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -43,17 +43,11 @@ function makeCandidate(files = {}) {
 }
 
 function runAudit(root) {
-  try {
-    return {
-      ok: true,
-      output: execFileSync(process.execPath, [scriptPath, root], { encoding: 'utf8' }),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      output: `${error.stdout ?? ''}${error.stderr ?? ''}`,
-    };
-  }
+  const result = spawnSync(process.execPath, [scriptPath, root], { encoding: 'utf8' });
+  return {
+    ok: result.status === 0,
+    output: `${result.stdout}${result.stderr}`,
+  };
 }
 
 describe('invariant-audit', () => {
