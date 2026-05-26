@@ -14,8 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src",
-    "audit:invariants": "node scripts/invariant-audit.mjs ."
+    "lint": "eslint src"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",
