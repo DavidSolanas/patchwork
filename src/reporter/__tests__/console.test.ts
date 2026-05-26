@@ -132,4 +132,22 @@ describe('ConsoleReporter (non-TTY)', () => {
     expect(out).toContain('cost unknown');
     expect(out).not.toContain('$0.00');
   });
+
+  it('notes at end when agent cost telemetry was unavailable', () => {
+    const stream = new CaptureStream() as unknown as NodeJS.WriteStream;
+    const r = new ConsoleReporter(stream);
+    r.end({
+      ...stats,
+      totalCostUsd: 0,
+      perIssue: [
+        {
+          ...result('success'),
+          tokens: { input: 0, output: 0, cacheRead: 0 },
+          costUsd: 0,
+        },
+      ],
+    });
+    const out = (stream as unknown as CaptureStream).text();
+    expect(out).toContain('Agent cost telemetry was unavailable; total USD reflects triage only.');
+  });
 });

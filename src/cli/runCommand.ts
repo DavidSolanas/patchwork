@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import chalk from 'chalk';
 import parseDiff from 'parse-diff';
 import { DEFAULT_CONFIG_PATH, DEFAULT_TRIAGE_MODEL, SUMMARY_FILE } from '../config/defaults.js';
 import { loadConfig, type PatchworkConfig } from '../config/load.js';
@@ -11,7 +12,7 @@ import { makeOctokit, type Octokit } from '../github/octokit.js';
 import { scoreIssue } from '../github/scoreIssue.js';
 import { createPR } from '../github/createPR.js';
 import { ConsoleReporter } from '../reporter/console.js';
-import { priceFor } from '../reporter/costs.js';
+import { AGENT_COST_TELEMETRY_START_WARNING, priceFor } from '../reporter/costs.js';
 import { writeSummary } from '../reporter/markdown.js';
 import { RunState } from '../reporter/runState.js';
 import { isBinary } from '../review/diffViewer.js';
@@ -130,6 +131,10 @@ export async function executeRun(
   const dedupCache: DedupCache = createDedupCache();
 
   reporter.start(config);
+
+  if (!opts.dryRun) {
+    process.stderr.write(chalk.yellow(AGENT_COST_TELEMETRY_START_WARNING) + '\n');
+  }
 
   const targets = filterTargets(config.targets, opts.repo);
 

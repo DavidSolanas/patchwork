@@ -99,6 +99,31 @@ describe('renderSummary', () => {
     expect(md).toContain('- Cost: cost unknown');
     expect(md).not.toContain('$0.00');
   });
+
+  it('notes when agent cost telemetry was unavailable', () => {
+    const md = renderSummary(
+      baseStats({
+        totalCostUsd: 0,
+        perIssue: [
+          result({
+            tokens: { input: 0, output: 0, cacheRead: 0 },
+            costUsd: 0,
+            outcome: { kind: 'success', branch: 'fix/x', diff: '', commitSha: 'a', agentSummary: 's' },
+          }),
+        ],
+      }),
+    );
+    expect(md).toContain('Agent cost telemetry was unavailable; total USD reflects triage only.');
+  });
+
+  it('omits the telemetry note when all costs are known', () => {
+    const md = renderSummary(
+      baseStats({
+        perIssue: [result({ outcome: { kind: 'success', branch: 'fix/x', diff: '', commitSha: 'a', agentSummary: 's' } })],
+      }),
+    );
+    expect(md).not.toContain('Agent cost telemetry was unavailable');
+  });
 });
 
 describe('writeSummary', () => {
