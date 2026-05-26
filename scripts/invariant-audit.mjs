@@ -57,17 +57,16 @@ function reportFile(repoPath, message) {
   violations.push(`${repoPath}: ${message}`);
 }
 
-function accessName(node) {
+function accessName(node, sourceFile, stringConstants) {
   if (ts.isPropertyAccessExpression(node)) {
     return node.name.text;
   }
 
   if (
     ts.isElementAccessExpression(node) &&
-    node.argumentExpression &&
-    ts.isStringLiteralLike(node.argumentExpression)
+    node.argumentExpression
   ) {
-    return node.argumentExpression.text;
+    return nodeStringValue(node.argumentExpression, sourceFile, stringConstants);
   }
 
   return undefined;
@@ -81,12 +80,16 @@ function accessExpression(node) {
   return undefined;
 }
 
-function isAccessNamed(node, name) {
-  return accessName(node) === name;
+function isAccessNamed(node, name, sourceFile, stringConstants) {
+  return accessName(node, sourceFile, stringConstants) === name;
 }
 
 function isFalseLiteral(node) {
   return node.kind === ts.SyntaxKind.FalseKeyword;
+}
+
+function isTrueLiteral(node) {
+  return node.kind === ts.SyntaxKind.TrueKeyword;
 }
 
 function isLiteralFalseType(node) {
@@ -97,7 +100,7 @@ function isLiteralFalseType(node) {
   );
 }
 
-function nodeStringValue(node, sourceFile) {
+function nodeStringValue(node, sourceFile, stringConstants) {
   if (!node) {
     return undefined;
   }
@@ -106,36 +109,58 @@ function nodeStringValue(node, sourceFile) {
     return node.text;
   }
 
+  if (ts.isIdentifier(node) && stringConstants?.has(node.text)) {
+    return stringConstants.get(node.text);
+  }
+
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
+    return nodeStringValue(node.expression, sourceFile, stringConstants);
+  }
+
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = nodeStringValue(node.left, sourceFile, stringConstants);
+    const right = nodeStringValue(node.right, sourceFile, stringConstants);
+    return left !== undefined && right !== undefined ? `${left}${right}` : undefined;
+  }
+
   if (ts.isTemplateExpression(node)) {
-    return node.getText(sourceFile);
+    let value = node.head.text;
+    for (const span of node.templateSpans) {
+      const expressionValue = nodeStringValue(span.expression, sourceFile, stringConstants);
+      if (expressionValue === undefined) {
+        return undefined;
+      }
+      value += expressionValue + span.literal.text;
+    }
+    return value;
   }
 
   return undefined;
 }
 
-function propertyNameText(name) {
+function propertyNameText(name, sourceFile, stringConstants) {
   if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) {
     return name.text;
   }
 
-  if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression)) {
-    return name.expression.text;
+  if (ts.isComputedPropertyName(name)) {
+    return nodeStringValue(name.expression, sourceFile, stringConstants);
   }
 
   return undefined;
 }
 
-function objectStringProperty(objectLiteral, propertyName, sourceFile) {
+function objectStringProperty(objectLiteral, propertyName, sourceFile, stringConstants) {
   for (const property of objectLiteral.properties) {
     if (!ts.isPropertyAssignment(property)) {
       continue;
     }
 
-    if (propertyNameText(property.name) !== propertyName) {
+    if (propertyNameText(property.name, sourceFile, stringConstants) !== propertyName) {
       continue;
     }
 
-    return nodeStringValue(property.initializer, sourceFile);
+    return nodeStringValue(property.initializer, sourceFile, stringConstants);
   }
 
   return undefined;
@@ -150,13 +175,28 @@ function isCreatePullRequestRoute(route) {
   return /\bPOST\b/i.test(normalized) && /\/repos\//.test(normalized) && /\/pulls\b/.test(normalized);
 }
 
-function isCreatePullRequestOptions(node, sourceFile) {
+function isCreatePullRequestGraphql(query) {
+  return Boolean(query && /\bmutation\b/i.test(query) && /\bcreatePullRequest\b/.test(query));
+}
+
+function isGitHubGraphqlRoute(route) {
+  if (!route) {
+    return false;
+  }
+
+  const normalized = route.replace(/\s+/g, ' ');
+  return /\bPOST\b/i.test(normalized) && /\/graphql\b/.test(normalized);
+}
+
+function isCreatePullRequestOptions(node, sourceFile, stringConstants) {
   if (!ts.isObjectLiteralExpression(node)) {
     return false;
   }
 
-  const method = objectStringProperty(node, 'method', sourceFile);
-  const url = objectStringProperty(node, 'url', sourceFile) ?? objectStringProperty(node, 'path', sourceFile);
+  const method = objectStringProperty(node, 'method', sourceFile, stringConstants);
+  const url =
+    objectStringProperty(node, 'url', sourceFile, stringConstants) ??
+    objectStringProperty(node, 'path', sourceFile, stringConstants);
 
   return Boolean(method && /^POST$/i.test(method) && url && /\/repos\//.test(url) && /\/pulls\b/.test(url));
 }
@@ -165,24 +205,123 @@ function bindingNameText(name) {
   return ts.isIdentifier(name) ? name.text : undefined;
 }
 
-function collectAliases(sourceFile) {
-  const pullsAliases = new Set(['pulls']);
-  const requestAliases = new Set(['request']);
+function isConstVariableDeclaration(node) {
+  return Boolean(
+    node.parent &&
+      ts.isVariableDeclarationList(node.parent) &&
+      (node.parent.flags & ts.NodeFlags.Const) !== 0,
+  );
+}
+
+function collectStringConstants(sourceFile) {
+  const stringConstants = new Map();
+  const ambiguousNames = new Set();
   let changed = true;
 
-  function initializerAliasesPulls(initializer) {
+  while (changed) {
+    changed = false;
+
+    function visit(node) {
+      if (ts.isVariableDeclaration(node) && isConstVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+        const value = nodeStringValue(node.initializer, sourceFile, stringConstants);
+        if (value !== undefined && !ambiguousNames.has(node.name.text)) {
+          if (!stringConstants.has(node.name.text)) {
+            stringConstants.set(node.name.text, value);
+            changed = true;
+          } else if (stringConstants.get(node.name.text) !== value) {
+            stringConstants.delete(node.name.text);
+            ambiguousNames.add(node.name.text);
+            changed = true;
+          }
+        }
+      }
+
+      ts.forEachChild(node, visit);
+    }
+
+    visit(sourceFile);
+  }
+
+  return stringConstants;
+}
+
+function collectAliases(sourceFile, stringConstants) {
+  const pullsAliases = new Set(['pulls']);
+  const requestAliases = new Set(['request']);
+  const graphqlAliases = new Set(['graphql']);
+  const pullCreateAliases = new Set();
+  let changed = true;
+
+  function expressionAliasesPulls(expression) {
     return Boolean(
-      initializer &&
-        (isAccessNamed(initializer, 'pulls') ||
-          (ts.isIdentifier(initializer) && pullsAliases.has(initializer.text))),
+      expression &&
+        (isAccessNamed(expression, 'pulls', sourceFile, stringConstants) ||
+          (ts.isIdentifier(expression) && pullsAliases.has(expression.text))),
     );
+  }
+
+  function expressionAliasesRequest(expression) {
+    return Boolean(
+      expression &&
+        (isAccessNamed(expression, 'request', sourceFile, stringConstants) ||
+          (ts.isIdentifier(expression) && requestAliases.has(expression.text))),
+    );
+  }
+
+  function expressionAliasesGraphql(expression) {
+    return Boolean(
+      expression &&
+        (isAccessNamed(expression, 'graphql', sourceFile, stringConstants) ||
+          (ts.isIdentifier(expression) && graphqlAliases.has(expression.text))),
+    );
+  }
+
+  function expressionAliasesPullCreate(expression) {
+    if (!expression) {
+      return false;
+    }
+
+    if (ts.isIdentifier(expression) && pullCreateAliases.has(expression.text)) {
+      return true;
+    }
+
+    return Boolean(
+      isAccessNamed(expression, 'create', sourceFile, stringConstants) &&
+        expressionAliasesPulls(accessExpression(expression)),
+    );
+  }
+
+  function isBoundAliasOf(expression, predicate) {
+    return Boolean(
+      ts.isCallExpression(expression) &&
+        isAccessNamed(expression.expression, 'bind', sourceFile, stringConstants) &&
+        predicate(accessExpression(expression.expression)),
+    );
+  }
+
+  function initializerAliasesPulls(initializer) {
+    return expressionAliasesPulls(initializer);
   }
 
   function initializerAliasesRequest(initializer) {
     return Boolean(
       initializer &&
-        (isAccessNamed(initializer, 'request') ||
-          (ts.isIdentifier(initializer) && requestAliases.has(initializer.text))),
+        (expressionAliasesRequest(initializer) || isBoundAliasOf(initializer, expressionAliasesRequest)),
+    );
+  }
+
+  function initializerAliasesGraphql(initializer) {
+    return Boolean(
+      initializer &&
+        (expressionAliasesGraphql(initializer) || isBoundAliasOf(initializer, expressionAliasesGraphql)),
+    );
+  }
+
+  function initializerAliasesPullCreate(initializer) {
+    return Boolean(
+      initializer &&
+        (expressionAliasesPullCreate(initializer) ||
+          isBoundAliasOf(initializer, expressionAliasesPullCreate)),
     );
   }
 
@@ -205,11 +344,19 @@ function collectAliases(sourceFile) {
           if (initializerAliasesRequest(node.initializer)) {
             maybeAdd(requestAliases, node.name.text);
           }
+          if (initializerAliasesGraphql(node.initializer)) {
+            maybeAdd(graphqlAliases, node.name.text);
+          }
+          if (initializerAliasesPullCreate(node.initializer)) {
+            maybeAdd(pullCreateAliases, node.name.text);
+          }
         }
 
         if (ts.isObjectBindingPattern(node.name)) {
           for (const element of node.name.elements) {
-            const propertyName = element.propertyName ? propertyNameText(element.propertyName) : bindingNameText(element.name);
+            const propertyName = element.propertyName
+              ? propertyNameText(element.propertyName, sourceFile, stringConstants)
+              : bindingNameText(element.name);
             const boundName = bindingNameText(element.name);
             if (propertyName === 'pulls') {
               maybeAdd(pullsAliases, boundName);
@@ -217,6 +364,29 @@ function collectAliases(sourceFile) {
             if (propertyName === 'request') {
               maybeAdd(requestAliases, boundName);
             }
+            if (propertyName === 'graphql') {
+              maybeAdd(graphqlAliases, boundName);
+            }
+            if (propertyName === 'create' && initializerAliasesPulls(node.initializer)) {
+              maybeAdd(pullCreateAliases, boundName);
+            }
+          }
+        }
+      }
+
+      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        if (ts.isIdentifier(node.left)) {
+          if (initializerAliasesPulls(node.right)) {
+            maybeAdd(pullsAliases, node.left.text);
+          }
+          if (initializerAliasesRequest(node.right)) {
+            maybeAdd(requestAliases, node.left.text);
+          }
+          if (initializerAliasesGraphql(node.right)) {
+            maybeAdd(graphqlAliases, node.left.text);
+          }
+          if (initializerAliasesPullCreate(node.right)) {
+            maybeAdd(pullCreateAliases, node.left.text);
           }
         }
       }
@@ -227,49 +397,174 @@ function collectAliases(sourceFile) {
     visit(sourceFile);
   }
 
-  return { pullsAliases, requestAliases };
+  return {
+    pullsAliases,
+    requestAliases,
+    graphqlAliases,
+    pullCreateAliases,
+    initializerAliasesPulls,
+    expressionAliasesPullCreate,
+    expressionAliasesRequest,
+    expressionAliasesGraphql,
+    initializerAliasesPullCreate,
+  };
 }
 
-function auditPrCreationEntrypoints(repoPath, sourceFile) {
+function isStaticRequestRoute(node, sourceFile, stringConstants) {
+  if (!node) {
+    return false;
+  }
+
+  if (nodeStringValue(node, sourceFile, stringConstants) !== undefined) {
+    return true;
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    const method = objectStringProperty(node, 'method', sourceFile, stringConstants);
+    const url =
+      objectStringProperty(node, 'url', sourceFile, stringConstants) ??
+      objectStringProperty(node, 'path', sourceFile, stringConstants);
+    return method !== undefined && url !== undefined;
+  }
+
+  return false;
+}
+
+function auditPrCreationEntrypoints(repoPath, sourceFile, stringConstants) {
   if (isAllowedPrCreationEntrypoint(repoPath) || isTestFile(repoPath)) {
     return;
   }
 
-  const { pullsAliases, requestAliases } = collectAliases(sourceFile);
+  const {
+    pullsAliases,
+    requestAliases,
+    graphqlAliases,
+    pullCreateAliases,
+    initializerAliasesPulls,
+    expressionAliasesPullCreate,
+    expressionAliasesRequest,
+    expressionAliasesGraphql,
+    initializerAliasesPullCreate,
+  } = collectAliases(sourceFile, stringConstants);
 
   function isPullsCreateCallee(callee) {
-    if (!isAccessNamed(callee, 'create')) {
+    if (ts.isIdentifier(callee) && pullCreateAliases.has(callee.text)) {
+      return true;
+    }
+
+    if (!isAccessNamed(callee, 'create', sourceFile, stringConstants)) {
       return false;
     }
 
     const receiver = accessExpression(callee);
     return Boolean(
       receiver &&
-        (isAccessNamed(receiver, 'pulls') ||
+        (isAccessNamed(receiver, 'pulls', sourceFile, stringConstants) ||
           (ts.isIdentifier(receiver) && pullsAliases.has(receiver.text))),
     );
   }
 
   function isRequestCallee(callee) {
     return Boolean(
-      isAccessNamed(callee, 'request') ||
+      isAccessNamed(callee, 'request', sourceFile, stringConstants) ||
         (ts.isIdentifier(callee) && requestAliases.has(callee.text)),
     );
   }
 
+  function isGraphqlCallee(callee) {
+    return Boolean(
+      isAccessNamed(callee, 'graphql', sourceFile, stringConstants) ||
+        (ts.isIdentifier(callee) && graphqlAliases.has(callee.text)),
+    );
+  }
+
+  function isRequestDefaultsCallee(callee) {
+    return Boolean(
+      isAccessNamed(callee, 'defaults', sourceFile, stringConstants) &&
+        expressionAliasesRequest(accessExpression(callee)),
+    );
+  }
+
+  function isGraphqlDefaultsCallee(callee) {
+    return Boolean(
+      isAccessNamed(callee, 'defaults', sourceFile, stringConstants) &&
+        expressionAliasesGraphql(accessExpression(callee)),
+    );
+  }
+
+  function isPullCreateMethodMetaCallee(callee) {
+    const method = accessName(callee, sourceFile, stringConstants);
+    return Boolean(
+      (method === 'bind' || method === 'call' || method === 'apply') &&
+        expressionAliasesPullCreate(accessExpression(callee)),
+    );
+  }
+
+  function variableDeclarationAliasesPullCreate(node) {
+    if (initializerAliasesPullCreate(node.initializer)) {
+      return true;
+    }
+
+    if (!ts.isObjectBindingPattern(node.name) || !initializerAliasesPulls(node.initializer)) {
+      return false;
+    }
+
+    return node.name.elements.some((element) => {
+      const propertyName = element.propertyName
+        ? propertyNameText(element.propertyName, sourceFile, stringConstants)
+        : bindingNameText(element.name);
+      return propertyName === 'create';
+    });
+  }
+
   function visit(node) {
+    if (ts.isVariableDeclaration(node) && variableDeclarationAliasesPullCreate(node)) {
+      report(repoPath, sourceFile, node, 'INVARIANT #1: pull request create method alias outside src/github/createPR.ts');
+    }
+
     if (ts.isCallExpression(node)) {
+      if (isPullCreateMethodMetaCallee(node.expression)) {
+        report(repoPath, sourceFile, node, 'INVARIANT #1: pull request create method alias outside src/github/createPR.ts');
+      }
+
       if (isPullsCreateCallee(node.expression)) {
         report(repoPath, sourceFile, node, 'INVARIANT #1: pull request creation outside src/github/createPR.ts');
       }
 
+      if (isRequestDefaultsCallee(node.expression) || isGraphqlDefaultsCallee(node.expression)) {
+        report(repoPath, sourceFile, node, 'INVARIANT #1: GitHub request defaults outside src/github/createPR.ts can hide pull request creation');
+      }
+
       if (isRequestCallee(node.expression)) {
         const firstArg = node.arguments[0];
-        const route = nodeStringValue(firstArg, sourceFile);
-        if (isCreatePullRequestRoute(route) || (firstArg && isCreatePullRequestOptions(firstArg, sourceFile))) {
+        const route = nodeStringValue(firstArg, sourceFile, stringConstants);
+        if (
+          isCreatePullRequestRoute(route) ||
+          isGitHubGraphqlRoute(route) ||
+          (firstArg && isCreatePullRequestOptions(firstArg, sourceFile, stringConstants))
+        ) {
           report(repoPath, sourceFile, node, 'INVARIANT #1: GitHub pull request REST create route outside src/github/createPR.ts');
+        } else if (!isStaticRequestRoute(firstArg, sourceFile, stringConstants)) {
+          report(repoPath, sourceFile, node, 'INVARIANT #1: GitHub REST request routes outside src/github/createPR.ts must be static');
         }
       }
+
+      if (isGraphqlCallee(node.expression)) {
+        const firstArg = node.arguments[0];
+        const query = nodeStringValue(firstArg, sourceFile, stringConstants);
+        if (isCreatePullRequestGraphql(query)) {
+          report(repoPath, sourceFile, node, 'INVARIANT #1: GitHub GraphQL createPullRequest outside src/github/createPR.ts');
+        } else if (query === undefined) {
+          report(repoPath, sourceFile, node, 'INVARIANT #1: GitHub GraphQL operations outside src/github/createPR.ts must be static');
+        }
+      }
+    }
+
+    if (
+      (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+      expressionAliasesPullCreate(node)
+    ) {
+      report(repoPath, sourceFile, node, 'INVARIANT #1: pull request create method reference outside src/github/createPR.ts');
     }
 
     ts.forEachChild(node, visit);
@@ -278,12 +573,12 @@ function auditPrCreationEntrypoints(repoPath, sourceFile) {
   visit(sourceFile);
 }
 
-function auditAutoCreatePr(repoPath, sourceFile) {
+function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
   let sawStartRunInput = false;
   let sawAutoCreatePrMember = false;
 
   function auditPropertySignature(node) {
-    if (!ts.isIdentifier(node.name) || node.name.text !== 'autoCreatePR') {
+    if (propertyNameText(node.name, sourceFile, stringConstants) !== 'autoCreatePR') {
       return;
     }
 
@@ -294,16 +589,42 @@ function auditAutoCreatePr(repoPath, sourceFile) {
   }
 
   function auditAutoCreatePrValue(node) {
-    if (ts.isPropertyAssignment(node) && propertyNameText(node.name) === 'autoCreatePR' && !isFalseLiteral(node.initializer)) {
+    if (
+      ts.isPropertyAssignment(node) &&
+      propertyNameText(node.name, sourceFile, stringConstants) === 'autoCreatePR' &&
+      !isFalseLiteral(node.initializer)
+    ) {
       report(repoPath, sourceFile, node, 'INVARIANT #2: autoCreatePR values must be the literal false');
+    }
+
+    if (
+      ts.isPropertyAssignment(node) &&
+      ts.isComputedPropertyName(node.name) &&
+      propertyNameText(node.name, sourceFile, stringConstants) === undefined &&
+      !isFalseLiteral(node.initializer)
+    ) {
+      report(repoPath, sourceFile, node, 'INVARIANT #2: computed autoCreatePR keys must resolve statically or use the literal false');
     }
 
     if (ts.isShorthandPropertyAssignment(node) && node.name.text === 'autoCreatePR') {
       report(repoPath, sourceFile, node, 'INVARIANT #2: autoCreatePR must not be passed through a variable');
     }
 
-    if (ts.isBinaryExpression(node) && isAccessNamed(node.left, 'autoCreatePR') && !isFalseLiteral(node.right)) {
+    if (
+      ts.isBinaryExpression(node) &&
+      isAccessNamed(node.left, 'autoCreatePR', sourceFile, stringConstants) &&
+      !isFalseLiteral(node.right)
+    ) {
       report(repoPath, sourceFile, node, 'INVARIANT #2: autoCreatePR assignments must be the literal false');
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      ts.isElementAccessExpression(node.left) &&
+      accessName(node.left, sourceFile, stringConstants) === undefined &&
+      isTrueLiteral(node.right)
+    ) {
+      report(repoPath, sourceFile, node, 'INVARIANT #2: computed autoCreatePR assignment keys must resolve statically');
     }
   }
 
@@ -332,13 +653,13 @@ function auditAutoCreatePr(repoPath, sourceFile) {
   }
 }
 
-function auditOctokitImports(repoPath, sourceFile) {
+function auditOctokitImports(repoPath, sourceFile, stringConstants) {
   if (isGithubSource(repoPath) || isTestFile(repoPath)) {
     return;
   }
 
   function isOctokitRestSpecifier(node) {
-    return nodeStringValue(node, sourceFile) === '@octokit/rest';
+    return nodeStringValue(node, sourceFile, stringConstants) === '@octokit/rest';
   }
 
   function visit(node) {
@@ -350,15 +671,19 @@ function auditOctokitImports(repoPath, sourceFile) {
       report(repoPath, sourceFile, node, 'INVARIANT #3: @octokit/rest export outside src/github/**');
     }
 
-    if (
-      ts.isCallExpression(node) &&
-      node.arguments[0] &&
-      ((node.expression.kind === ts.SyntaxKind.ImportKeyword && isOctokitRestSpecifier(node.arguments[0])) ||
-        (ts.isIdentifier(node.expression) &&
-          node.expression.text === 'require' &&
-          isOctokitRestSpecifier(node.arguments[0])))
-    ) {
-      report(repoPath, sourceFile, node, 'INVARIANT #3: @octokit/rest dynamic import outside src/github/**');
+    if (ts.isCallExpression(node) && node.arguments[0]) {
+      const isDynamicImport =
+        node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === 'require');
+
+      if (isDynamicImport) {
+        const specifier = nodeStringValue(node.arguments[0], sourceFile, stringConstants);
+        if (specifier === '@octokit/rest') {
+          report(repoPath, sourceFile, node, 'INVARIANT #3: @octokit/rest dynamic import outside src/github/**');
+        } else if (specifier === undefined) {
+          report(repoPath, sourceFile, node, 'INVARIANT #3: dynamic import specifiers outside src/github/** must be static');
+        }
+      }
     }
 
     ts.forEachChild(node, visit);
@@ -377,9 +702,10 @@ const sourceFiles = collectTsFiles(srcRoot).map((filePath) => {
 });
 
 for (const { repoPath, sourceFile } of sourceFiles) {
-  auditPrCreationEntrypoints(repoPath, sourceFile);
-  auditAutoCreatePr(repoPath, sourceFile);
-  auditOctokitImports(repoPath, sourceFile);
+  const stringConstants = collectStringConstants(sourceFile);
+  auditPrCreationEntrypoints(repoPath, sourceFile, stringConstants);
+  auditAutoCreatePr(repoPath, sourceFile, stringConstants);
+  auditOctokitImports(repoPath, sourceFile, stringConstants);
 }
 
 if (violations.length > 0) {
