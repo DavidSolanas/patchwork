@@ -396,7 +396,7 @@ describe('invariant-audit', () => {
     expect(result.output).toContain('computed autoCreatePR assignment keys must resolve statically');
   });
 
-  it('rejects unresolved computed autoCreatePR assignments to non-false expressions', () => {
+  it('rejects computed autoCreatePR assignments resolved from indexed constants', () => {
     const result = runAudit(
       makeCandidate({
         'src/agent/cursorClient.ts': `

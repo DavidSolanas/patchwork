@@ -113,6 +113,16 @@ function nodeStringValue(node, sourceFile, stringConstants) {
     return stringConstants.get(node.text);
   }
 
+  if (
+    ts.isElementAccessExpression(node) &&
+    ts.isArrayLiteralExpression(node.expression) &&
+    ts.isNumericLiteral(node.argumentExpression)
+  ) {
+    const index = Number.parseInt(node.argumentExpression.text, 10);
+    const element = Number.isInteger(index) ? node.expression.elements[index] : undefined;
+    return element ? nodeStringValue(element, sourceFile, stringConstants) : undefined;
+  }
+
   if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
     return nodeStringValue(node.expression, sourceFile, stringConstants);
   }
@@ -612,6 +622,7 @@ function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
 
     if (
       ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       isAccessNamed(node.left, 'autoCreatePR', sourceFile, stringConstants) &&
       !isFalseLiteral(node.right)
     ) {
@@ -620,9 +631,10 @@ function auditAutoCreatePr(repoPath, sourceFile, stringConstants) {
 
     if (
       ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       ts.isElementAccessExpression(node.left) &&
       accessName(node.left, sourceFile, stringConstants) === undefined &&
-      !isFalseLiteral(node.right)
+      isTrueLiteral(node.right)
     ) {
       report(repoPath, sourceFile, node, 'INVARIANT #2: computed autoCreatePR assignment keys must resolve statically');
     }
